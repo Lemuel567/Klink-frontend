@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors, Gradients } from '../../theme/colors';
 import { FontSize, FontWeight } from '../../theme/typography';
@@ -10,7 +10,7 @@ interface Props {
   name: string;
   photoUrl?: string;
   size?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function KlinkAvatar({ name, photoUrl, size = 48, style }: Props) {
@@ -22,7 +22,7 @@ export function KlinkAvatar({ name, photoUrl, size = 48, style }: Props) {
     return (
       <Image
         source={{ uri: photoUrl }}
-        style={[{ width: size, height: size, borderRadius }, style]}
+        style={[{ width: size, height: size, borderRadius }, style as any]}
         contentFit="cover"
         placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
         transition={300}

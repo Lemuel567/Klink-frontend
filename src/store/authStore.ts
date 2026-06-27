@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { authApi, LoginResponse, MemberSummary } from '../api/auth';
+import { authApi, AuthResponse, MemberSummary } from '../api/auth';
 import { SECURE_KEYS } from '../utils/constants';
 
 interface AuthState {
@@ -14,7 +14,7 @@ interface AuthState {
 
 interface AuthActions {
   initialize: () => Promise<void>;
-  login: (data: LoginResponse) => Promise<void>;
+  login: (data: AuthResponse) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: Partial<MemberSummary>) => void;
   clearAuth: () => Promise<void>;
@@ -30,10 +30,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   initialize: async () => {
     try {
-      const accessToken = await SecureStore.getItemAsync(SECURE_KEYS.accessToken);
-      const refreshToken = await SecureStore.getItemAsync(SECURE_KEYS.refreshToken);
+      const [accessToken, refreshToken, userJson] = await Promise.all([
+        SecureStore.getItemAsync(SECURE_KEYS.accessToken),
+        SecureStore.getItemAsync(SECURE_KEYS.refreshToken),
+        SecureStore.getItemAsync(SECURE_KEYS.user),
+      ]);
       if (accessToken && refreshToken) {
-        set({ accessToken, refreshToken, isAuthenticated: true });
+        const user: MemberSummary | null = userJson ? JSON.parse(userJson) : null;
+        set({ accessToken, refreshToken, isAuthenticated: true, user });
       }
     } catch {
       // ignore — user must log in
@@ -42,21 +46,33 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     }
   },
 
-  login: async (data: LoginResponse) => {
-    await SecureStore.setItemAsync(SECURE_KEYS.accessToken, data.accessToken);
-    await SecureStore.setItemAsync(SECURE_KEYS.refreshToken, data.refreshToken);
+  // Backend returns AuthResponse with "token" field (not "accessToken")
+  login: async (data: AuthResponse) => {
+    const user: MemberSummary = {
+      id: data.memberId,
+      fullName: data.fullName,
+      role: data.role,
+      churchId: data.churchId,
+      churchCode: data.churchCode,
+      emailVerified: data.emailVerified,
+      phoneVerified: data.phoneVerified,
+    };
+    await Promise.all([
+      SecureStore.setItemAsync(SECURE_KEYS.accessToken, data.token),
+      SecureStore.setItemAsync(SECURE_KEYS.refreshToken, data.refreshToken),
+      SecureStore.setItemAsync(SECURE_KEYS.user, JSON.stringify(user)),
+    ]);
     set({
-      user: data.member,
-      accessToken: data.accessToken,
+      user,
+      accessToken: data.token,
       refreshToken: data.refreshToken,
       isAuthenticated: true,
     });
   },
 
   logout: async () => {
-    const { refreshToken } = get();
     try {
-      if (refreshToken) await authApi.logout(refreshToken);
+      await authApi.logout();
     } catch {
       // proceed with local logout even if server call fails
     }
@@ -65,17 +81,23 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   updateUser: (partial: Partial<MemberSummary>) => {
     const { user } = get();
-    if (user) set({ user: { ...user, ...partial } });
+    if (user) {
+      const updated = { ...user, ...partial };
+      set({ user: updated });
+      SecureStore.setItemAsync(SECURE_KEYS.user, JSON.stringify(updated)).catch(() => {});
+    }
   },
 
   clearAuth: async () => {
-    await SecureStore.deleteItemAsync(SECURE_KEYS.accessToken);
-    await SecureStore.deleteItemAsync(SECURE_KEYS.refreshToken);
+    await Promise.all([
+      SecureStore.deleteItemAsync(SECURE_KEYS.accessToken),
+      SecureStore.deleteItemAsync(SECURE_KEYS.refreshToken),
+      SecureStore.deleteItemAsync(SECURE_KEYS.user),
+    ]);
     set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
   },
 }));
 
-// Convenience selectors
 export const useUser = () => useAuthStore((s) => s.user);
 export const useRole = () => useAuthStore((s) => s.user?.role);
 export const useChurchId = () => useAuthStore((s) => s.user?.churchId);

@@ -1,16 +1,15 @@
 import { apiClient } from './client';
+import type { Member, MemberPage } from './members';
 
 export interface Payment {
   id: string;
-  churchId: string;
+  paymentType: 'OFFERING' | 'TITHE' | 'WELFARE' | 'DUES' | 'SPECIAL_CONTRIBUTION';
+  status?: 'CONFIRMED' | 'PENDING';
+  amount: number;
+  paymentMonth?: string;
+  paymentDate: string;
   memberId?: string;
   memberName?: string;
-  groupId?: string;
-  paymentType: 'OFFERING' | 'TITHE' | 'WELFARE' | 'DUES' | 'SPECIAL_CONTRIBUTION';
-  amount: number;
-  paymentMonth: string;
-  paymentDate: string;
-  status: 'CONFIRMED' | 'PENDING';
   recordedBy: string;
   createdAt: string;
 }
@@ -22,8 +21,11 @@ export interface PaymentPage {
   number: number;
 }
 
+export { Member, MemberPage };
+
 export const givingApi = {
-  recordOffering: (body: { amount: number; paymentDate: string; paymentMonth: string }) =>
+  // Backend: { serviceDate: LocalDate, amount: BigDecimal } — no paymentMonth
+  recordOffering: (body: { serviceDate: string; amount: number }) =>
     apiClient.post<Payment>('/finances/offering', body).then((r) => r.data),
 
   recordTithe: (body: {
@@ -31,20 +33,27 @@ export const givingApi = {
     amount: number;
     paymentDate: string;
     paymentMonth: string;
+    momoReference?: string;
   }) => apiClient.post<Payment>('/finances/tithe', body).then((r) => r.data),
 
+  // Returns List<PaymentResponse> (array, not single item)
   recordWelfare: (body: {
     memberId: string;
-    amount: number;
+    amountPaid: number;
     paymentDate: string;
     paymentMonth: string;
-  }) => apiClient.post<Payment>('/finances/welfare', body).then((r) => r.data),
+    momoReference?: string;
+  }) => apiClient.post<Payment[]>('/finances/welfare', body).then((r) => r.data),
 
-  getWelfareDefaulters: (params?: { page?: number; size?: number }) =>
-    apiClient.get<PaymentPage>('/finances/welfare/defaulters', { params }).then((r) => r.data),
+  // Returns Page<MemberResponse> — members who have NOT paid welfare for the month
+  getWelfareDefaulters: (month: string, params?: { page?: number; size?: number }) =>
+    apiClient
+      .get<MemberPage>('/finances/welfare/defaulters', { params: { month, ...params } })
+      .then((r) => r.data),
 
-  remindWelfareDefaulters: () =>
-    apiClient.post('/finances/welfare/remind').then((r) => r.data),
+  // Returns 204 No Content
+  remindWelfareDefaulters: (month: string) =>
+    apiClient.post('/finances/welfare/remind', null, { params: { month } }).then((r) => r.data),
 
   getMyPayments: (params?: { page?: number; size?: number }) =>
     apiClient.get<PaymentPage>('/finances/me', { params }).then((r) => r.data),

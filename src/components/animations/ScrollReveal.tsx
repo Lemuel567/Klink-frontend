@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ViewStyle } from 'react-native';
+import { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,7 +13,7 @@ interface Props {
   delay?: number;
   direction?: 'up' | 'down' | 'left' | 'right';
   distance?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function ScrollReveal({
