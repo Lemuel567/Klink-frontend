@@ -26,10 +26,10 @@ import {
   SermonCardSkeleton,
   StatCardSkeleton,
 } from '../../src/components/common/KlinkSkeleton';
-import { announcementsApi } from '../../src/api/announcements';
-import { sermonsApi } from '../../src/api/sermons';
-import { eventsApi } from '../../src/api/events';
-import { projectsApi } from '../../src/api/projects';
+import { announcementsApi, Announcement } from '../../src/api/announcements';
+import { sermonsApi, Sermon } from '../../src/api/sermons';
+import { eventsApi, ChurchEvent } from '../../src/api/events';
+import { projectsApi, Project } from '../../src/api/projects';
 import { useParallax } from '../../src/hooks/useParallax';
 import { useAuthStore, useUser } from '../../src/store/authStore';
 import { Colors, Gradients } from '../../src/theme/colors';
@@ -129,11 +129,11 @@ export default function HomeScreen() {
         {/* Active projects */}
         {(projects?.content?.length ?? 0) > 0 && (
           <View style={styles.section}>
-            <SectionHeader label="Active Projects" onSeeAll={() => router.push('/projects/')} />
+            <SectionHeader label="Active Projects" onSeeAll={() => router.push('/projects')} />
             {loadingProjects ? (
               <SermonCardSkeleton />
             ) : (
-              projects?.content?.slice(0, 2).map((p, i) => (
+              projects?.content?.slice(0, 2).map((p: Project, i: number) => (
                 <ProjectCard
                   key={p.id}
                   project={p}
@@ -147,20 +147,20 @@ export default function HomeScreen() {
 
         {/* Announcements */}
         <View style={styles.section}>
-          <SectionHeader label="Announcements" onSeeAll={() => router.push('/announcements/')} />
+          <SectionHeader label="Announcements" onSeeAll={() => router.push('/announcements')} />
           {loadingAnn
             ? Array.from({ length: 3 }, (_, i) => <AnnouncementSkeleton key={i} />)
-            : announcements?.content?.map((a, i) => (
+            : announcements?.content?.map((a: Announcement, i: number) => (
                 <AnnouncementCard key={a.id} announcement={a} index={i} />
               ))}
         </View>
 
         {/* Upcoming events */}
         <View style={styles.section}>
-          <SectionHeader label="Upcoming Events" onSeeAll={() => router.push('/events/')} />
+          <SectionHeader label="Upcoming Events" onSeeAll={() => router.push('/events')} />
           {loadingEvents
             ? Array.from({ length: 2 }, (_, i) => <AnnouncementSkeleton key={i} />)
-            : events?.content?.slice(0, 3).map((e, i) => (
+            : events?.content?.slice(0, 3).map((e: ChurchEvent, i: number) => (
                 <EventCard key={e.id} event={e} index={i} />
               ))}
         </View>
@@ -170,7 +170,7 @@ export default function HomeScreen() {
           <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/(tabs)/sermons')} />
           {loadingSermons
             ? Array.from({ length: 2 }, (_, i) => <SermonCardSkeleton key={i} />)
-            : sermons?.content?.slice(0, 3).map((s, i) => (
+            : sermons?.content?.slice(0, 3).map((s: Sermon, i: number) => (
                 <SermonCard key={s.id} sermon={s} index={i} onPress={() => router.push(`/sermons/${s.id}`)} />
               ))}
         </View>

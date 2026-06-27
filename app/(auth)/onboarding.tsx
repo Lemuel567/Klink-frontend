@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
-  FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -52,7 +52,7 @@ const SLIDES = [
 ];
 
 export default function OnboardingScreen() {
-  const flatListRef = useRef<FlatList>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const haptics = useHaptics();
   const dotX = useSharedValue(0);
@@ -68,7 +68,8 @@ export default function OnboardingScreen() {
 
   const handleNext = () => {
     if (activeIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+      const nextIndex = activeIndex + 1;
+      scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
     } else {
       router.replace('/(auth)/login');
     }
@@ -80,16 +81,17 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        keyExtractor={(item) => item.id}
+      <ScrollView
+        ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
+        scrollEventThrottle={16}
+        bounces={false}
+      >
+        {SLIDES.map((item) => (
+          <View key={item.id} style={styles.slide}>
             {/* Multi-layer parallax background */}
             <LinearGradient colors={item.gradient} style={StyleSheet.absoluteFill} />
             <LightBeam opacity={0.08} />
@@ -110,8 +112,8 @@ export default function OnboardingScreen() {
               <Text style={styles.subtitle}>{item.subtitle}</Text>
             </View>
           </View>
-        )}
-      />
+        ))}
+      </ScrollView>
 
       {/* Controls */}
       <View style={styles.controls}>
@@ -133,6 +135,7 @@ export default function OnboardingScreen() {
           onPress={() => router.replace('/(auth)/login')}
           style={styles.skipBtn}
           accessibilityRole="button"
+          accessibilityLabel="Skip onboarding"
         >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>

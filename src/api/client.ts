@@ -49,7 +49,8 @@ apiClient.interceptors.response.use(
         if (!refreshToken) throw new Error('No refresh token');
 
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-        const newAccessToken: string = data.accessToken;
+        // Backend AuthResponse uses "token" field, not "accessToken"
+        const newAccessToken: string = data.token;
         const newRefreshToken: string = data.refreshToken;
 
         await SecureStore.setItemAsync(SECURE_KEYS.accessToken, newAccessToken);

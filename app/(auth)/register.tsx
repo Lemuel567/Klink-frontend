@@ -16,7 +16,6 @@ import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { authApi } from '../../src/api/auth';
-import { useAuthStore } from '../../src/store/authStore';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
@@ -34,11 +33,11 @@ export default function RegisterScreen() {
   const [churchCode, setChurchCode] = useState('');
   const [churchName, setChurchName] = useState('');
   const [location, setLocation] = useState('');
+  const [denomination, setDenomination] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuthStore();
   const haptics = useHaptics();
 
   const handleRegister = useCallback(async () => {
@@ -58,9 +57,8 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      let data;
       if (mode === 'join') {
-        data = await authApi.register({
+        await authApi.register({
           fullName: fullName.trim(),
           email: email.trim() || undefined,
           phoneNumber: phone.trim() || undefined,
@@ -68,24 +66,33 @@ export default function RegisterScreen() {
           churchCode: churchCode.trim(),
         });
       } else {
-        data = await authApi.registerChurch({
+        if (!denomination.trim()) {
+          setError('Denomination is required.');
+          haptics.error();
+          setLoading(false);
+          return;
+        }
+        // registerChurch expects pastorEmail/pastorPassword (not email/password)
+        await authApi.registerChurch({
           churchName: churchName.trim(),
           location: location.trim(),
+          denomination: denomination.trim(),
           pastorName: fullName.trim(),
-          email: email.trim(),
-          password,
+          pastorEmail: email.trim(),
+          pastorPassword: password,
         });
       }
-      await login(data);
+      // Both register endpoints return { message } — tokens come from verify-email
       haptics.success();
-      router.replace('/(auth)/verify');
+      // Pass email so verify screen can display and use it
+      router.replace(`/(auth)/verify?email=${encodeURIComponent(email.trim())}`);
     } catch (e: any) {
       setError(e?.friendlyMessage ?? 'Registration failed. Please try again.');
       haptics.error();
     } finally {
       setLoading(false);
     }
-  }, [mode, fullName, email, phone, password, confirmPassword, churchCode, churchName, location, loading]);
+  }, [mode, fullName, email, phone, password, confirmPassword, churchCode, churchName, location, denomination, loading]);
 
   return (
     <View style={styles.container}>
@@ -155,6 +162,7 @@ export default function RegisterScreen() {
                 <>
                   <KlinkInput label="Church name" value={churchName} onChangeText={setChurchName} />
                   <KlinkInput label="Location" value={location} onChangeText={setLocation} />
+                  <KlinkInput label="Denomination (e.g. Presbyterian)" value={denomination} onChangeText={setDenomination} />
                 </>
               )}
 

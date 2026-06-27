@@ -27,10 +27,20 @@ export const membersApi = {
 
   update: (
     id: string,
-    body: Partial<Pick<Member, 'fullName' | 'phone' | 'dateOfBirth' | 'category' | 'photoUrl'>>,
+    body: Partial<{
+      fullName: string;
+      phone: string;
+      email: string;
+      dateOfBirth: string;
+      category: string;
+      address: string;
+      baptismDate: string;
+      membershipDate: string;
+    }>,
   ) => apiClient.put<Member>(`/members/${id}`, body).then((r) => r.data),
 
-  getQr: (id: string) => apiClient.get<{ qrCodeValue: string }>(`/members/${id}/qr`).then((r) => r.data),
+  // Backend returns raw String (QR code value), not JSON
+  getQr: (id: string) => apiClient.get<string>(`/members/${id}/qr`).then((r) => r.data),
 
   assignRole: (id: string, role: string) =>
     apiClient.put(`/members/${id}/role`, { role }).then((r) => r.data),
@@ -45,4 +55,24 @@ export const membersApi = {
     dateOfBirth?: string;
     category?: string;
   }) => apiClient.post<Member>('/members/register', body).then((r) => r.data),
+
+  // FCM token: PUT /members/me/fcm-token with { token }
+  registerFcmToken: (token: string) =>
+    apiClient.put('/members/me/fcm-token', { token }).then((r) => r.data),
+
+  removeFcmToken: () =>
+    apiClient.delete('/members/me/fcm-token').then((r) => r.data),
+
+  // PATCH /members/me/phone — triggers re-verification of new number
+  updatePhone: (phoneNumber: string) =>
+    apiClient.patch<{ message: string }>('/members/me/phone', { phoneNumber }).then((r) => r.data),
+
+  // POST /members/{id}/photo — multipart file upload
+  uploadPhoto: (id: string, file: { uri: string; name: string; type: string }) => {
+    const form = new FormData();
+    form.append('file', { uri: file.uri, name: file.name, type: file.type } as any);
+    return apiClient
+      .post<string>(`/members/${id}/photo`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then((r) => r.data);
+  },
 };

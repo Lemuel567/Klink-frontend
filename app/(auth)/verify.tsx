@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
@@ -14,7 +14,12 @@ import { FontSize, FontWeight } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 
 export default function VerifyScreen() {
-  const { user, updateUser } = useAuthStore();
+  // Email is passed as a route param from register screen
+  // (user is not logged in yet, so we can't read it from the auth store)
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
+  const email = emailParam ?? '';
+
+  const { login } = useAuthStore();
   const haptics = useHaptics();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,8 +32,9 @@ export default function VerifyScreen() {
     setError('');
     setLoading(true);
     try {
-      await authApi.verifyEmail({ email: user?.email ?? '', code: code.trim() });
-      updateUser({ emailVerified: true });
+      // verifyEmail returns full AuthResponse — tokens are issued here
+      const authResponse = await authApi.verifyEmail({ email, code: code.trim() });
+      await login(authResponse);
       haptics.success();
       router.replace('/(tabs)/home');
     } catch (e: any) {
@@ -37,13 +43,13 @@ export default function VerifyScreen() {
     } finally {
       setLoading(false);
     }
-  }, [code, loading, user]);
+  }, [code, loading, email, login]);
 
   const handleResend = useCallback(async () => {
-    if (resending || !user?.email) return;
+    if (resending || !email) return;
     setResending(true);
     try {
-      await authApi.resendVerification(user.email);
+      await authApi.resendVerification(email);
       setResent(true);
       haptics.success();
       setTimeout(() => setResent(false), 5000);
@@ -52,7 +58,7 @@ export default function VerifyScreen() {
     } finally {
       setResending(false);
     }
-  }, [resending, user]);
+  }, [resending, email]);
 
   return (
     <View style={styles.container}>
@@ -63,7 +69,7 @@ export default function VerifyScreen() {
           <ScrollReveal delay={0}>
             <Text style={styles.heading}>Verify your email</Text>
             <Text style={styles.sub}>
-              We sent a 6-digit code to {user?.email ?? 'your email'}. Enter it below.
+              We sent a 6-digit code to {email || 'your email'}. Enter it below.
             </Text>
           </ScrollReveal>
 

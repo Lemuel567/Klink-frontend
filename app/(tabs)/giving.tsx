@@ -32,7 +32,7 @@ export default function GivingScreen() {
   const { data: myPayments, isLoading, refetch, isRefetching } =
     useQuery({ queryKey: ['myPayments'], queryFn: () => givingApi.getMyPayments({ size: 10 }) });
 
-  const total = myPayments?.content?.reduce((sum, p) => sum + p.amount, 0) ?? 0;
+  const total = myPayments?.content?.reduce((sum: number, p: Payment) => sum + (p.amount as number), 0) ?? 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -115,7 +115,7 @@ export default function GivingScreen() {
               </Text>
             </View>
           ) : (
-            myPayments?.content?.map((payment, i) => (
+            myPayments?.content?.map((payment: Payment, i: number) => (
               <PaymentRow key={payment.id} payment={payment} index={i} />
             ))
           )}

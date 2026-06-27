@@ -33,7 +33,7 @@ export default function ProfileScreen() {
     queryFn: () => givingApi.getMyPayments({ size: 100 }),
   });
 
-  const totalGiven = myPayments?.content?.reduce((s, p) => s + p.amount, 0) ?? 0;
+  const totalGiven = myPayments?.content?.reduce((s: number, p: { amount: number }) => s + p.amount, 0) ?? 0;
 
   const handleLogout = useCallback(async () => {
     haptics.heavy();
