@@ -101,7 +101,7 @@ export default function ProfileScreen() {
       {/* Menu items */}
       <ScrollReveal delay={100}>
         <View style={[styles.section, { backgroundColor: theme.card }]}>
-          <MenuItem label="Edit profile" onPress={() => {}} theme={theme} />
+          <MenuItem label="Edit profile" onPress={() => router.push('/profile/edit')} theme={theme} />
           <MenuItem label="Giving history" onPress={() => router.push('/giving/history')} theme={theme} />
           <MenuItem label="My projects" onPress={() => router.push('/projects/')} theme={theme} />
           <MenuItem label="Church settings" onPress={() => {}} theme={theme} />

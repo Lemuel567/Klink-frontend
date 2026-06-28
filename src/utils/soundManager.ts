@@ -59,6 +59,8 @@ class SoundManager {
           volume: 0.25,
           shouldPlay: true,
           isLooping: true,
+          progressUpdateIntervalMillis: 1000,
+          shouldCorrectPitch: false,
         },
       );
       this.backgroundMusic = sound;
