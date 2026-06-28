@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
@@ -7,12 +7,14 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { KlinkAvatar, RoleBadge } from '../../src/components/common/KlinkAvatar';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
+import { KlinkToast } from '../../src/components/common/KlinkToast';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { membersApi } from '../../src/api/members';
 import { givingApi } from '../../src/api/giving';
 import { useAuthStore, useUser } from '../../src/store/authStore';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useSoundStore } from '../../src/store/soundStore';
+import { soundManager } from '../../src/utils/soundManager';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -31,6 +33,7 @@ export default function ProfileScreen() {
   const { logout } = useAuthStore();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   const { data: myPayments } = useQuery({
     queryKey: ['myPayments'],
@@ -55,8 +58,8 @@ export default function ProfileScreen() {
   const glow = roleGlow[user?.role ?? ''];
 
   return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={{ paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
@@ -104,7 +107,7 @@ export default function ProfileScreen() {
           <MenuItem label="Edit profile" onPress={() => router.push('/profile/edit')} theme={theme} />
           <MenuItem label="Giving history" onPress={() => router.push('/giving/history')} theme={theme} />
           <MenuItem label="My projects" onPress={() => router.push('/projects/')} theme={theme} />
-          <MenuItem label="Church settings" onPress={() => {}} theme={theme} />
+          <MenuItem label="Church settings" onPress={() => router.push('/church/settings')} theme={theme} />
         </View>
       </ScrollReveal>
 
@@ -126,17 +129,21 @@ export default function ProfileScreen() {
               </View>
               <View>
                 <Text style={[styles.menuLabel, { color: theme.text }]}>Worship Music</Text>
-                <Text style={[styles.musicSubtitle, { color: theme.textMuted }]}>Background music on home screen</Text>
+                <Text style={[styles.musicSubtitle, { color: theme.textMuted }]}>Plays across all screens while you use the app</Text>
               </View>
             </View>
             <Switch
               value={musicEnabled}
               onValueChange={(enabled) => {
                 haptics.light();
-                // setMusicEnabled updates the store; home.tsx's reactive
-                // useEffect([musicEnabled]) handles play/stop since the tab
-                // stays mounted in expo-router's tab navigator.
                 setMusicEnabled(enabled);
+                if (enabled) {
+                  soundManager.playBackgroundMusic().catch(() => {});
+                  setToast({ message: 'Worship music on', type: 'success' });
+                } else {
+                  soundManager.stopBackgroundMusic().catch(() => {});
+                  setToast({ message: 'Worship music off', type: 'info' });
+                }
               }}
               trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
             />
@@ -150,6 +157,16 @@ export default function ProfileScreen() {
         </View>
       </ScrollReveal>
     </ScrollView>
+
+    {toast && (
+      <KlinkToast
+        message={toast.message}
+        type={toast.type}
+        visible
+        onHide={() => setToast(null)}
+      />
+    )}
+    </View>
   );
 }
 
@@ -178,7 +195,7 @@ function MenuItem({ label, onPress, theme }: { label: string; onPress: () => voi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, overflow: 'hidden' },
   heroWrap: { position: 'relative', overflow: 'hidden' },
   roleGlow: {
     position: 'absolute',
