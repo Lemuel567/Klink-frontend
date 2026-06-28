@@ -13,7 +13,6 @@ import { givingApi } from '../../src/api/giving';
 import { useAuthStore, useUser } from '../../src/store/authStore';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useSoundStore } from '../../src/store/soundStore';
-import { soundManager } from '../../src/utils/soundManager';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -134,12 +133,10 @@ export default function ProfileScreen() {
               value={musicEnabled}
               onValueChange={(enabled) => {
                 haptics.light();
+                // setMusicEnabled updates the store; home.tsx's reactive
+                // useEffect([musicEnabled]) handles play/stop since the tab
+                // stays mounted in expo-router's tab navigator.
                 setMusicEnabled(enabled);
-                if (enabled) {
-                  soundManager.playBackgroundMusic();
-                } else {
-                  soundManager.stopBackgroundMusic();
-                }
               }}
               trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
             />
