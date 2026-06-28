@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -22,9 +23,11 @@ import { useThemeStore } from '../src/store/themeStore';
 import { useSoundStore } from '../src/store/soundStore';
 import { soundManager } from '../src/utils/soundManager';
 import { useTheme } from '../src/hooks/useTheme';
+import { useNetworkStatus } from '../src/hooks/useNetworkStatus';
 import { MusicIndicator } from '../src/components/common/MusicIndicator';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
+import { asyncStoragePersister } from '../src/utils/queryPersister';
 import { ACCESS_TOKEN_TTL_MS, TOKEN_REFRESH_MARGIN_MS } from '../src/utils/constants';
 import * as SecureStore from 'expo-secure-store';
 import { SECURE_KEYS } from '../src/utils/constants';
@@ -44,8 +47,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 60 * 24,
+      networkMode: 'offlineFirst',
       retry: (failureCount, error: any) => {
-        // Do not retry on auth errors or client errors
         if (error?.response?.status === 401 || error?.response?.status === 403) return false;
         if (error?.response?.status && error.response.status < 500) return false;
         return failureCount < 2;
@@ -63,6 +67,8 @@ export default function RootLayout() {
   const { initialize: initTheme } = useThemeStore();
   const { initialize: initSound } = useSoundStore();
   const { isDark } = useTheme();
+
+  useNetworkStatus();
 
   // Track whether the session warning has been shown for the current token
   const sessionWarningShownRef = useRef(false);
@@ -161,7 +167,10 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{ persister: asyncStoragePersister }}
+          >
             <StatusBar style={isDark ? 'light' : 'dark'} />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(auth)" />
@@ -178,7 +187,7 @@ export default function RootLayout() {
               <Stack.Screen name="announcements/index" />
               <Stack.Screen name="sermons/[id]" />
             </Stack>
-          </QueryClientProvider>
+          </PersistQueryClientProvider>
           {/* Floats over every screen — only visible when music is playing */}
           <MusicIndicator />
           {/* Shows when network is unreachable */}

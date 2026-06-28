@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
@@ -19,42 +22,154 @@ import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useHaptics } from '../../src/hooks/useHaptics';
+import { useDebounce } from '../../src/hooks/useDebounce';
+import { useRole } from '../../src/store/authStore';
+import { givingApi } from '../../src/api/giving';
+import { membersApi, Member } from '../../src/api/members';
 
-const GIVING_TYPES = [
-  { key: 'TITHE', label: 'Tithe', color: Colors.gold, desc: '10% of your income' },
-  { key: 'OFFERING', label: 'Offering', color: Colors.purple, desc: 'A freewill gift' },
+type GivingType = 'TITHE' | 'OFFERING' | 'WELFARE';
+
+const GIVING_TYPES: { key: GivingType; label: string; color: string; desc: string }[] = [
+  { key: 'TITHE', label: 'Tithe', color: Colors.gold, desc: '10% of income' },
+  { key: 'OFFERING', label: 'Offering', color: Colors.purpleLight ?? Colors.purple, desc: 'A freewill gift' },
   { key: 'WELFARE', label: 'Welfare', color: Colors.green, desc: 'Care for members in need' },
-  { key: 'SPECIAL_CONTRIBUTION', label: 'Special', color: Colors.blue, desc: 'Building fund & more' },
 ];
+
+function todayIso() {
+  return new Date().toISOString().split('T')[0];
+}
 
 export default function NewGivingScreen() {
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
-  const [type, setType] = useState('TITHE');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [amountError, setAmountError] = useState('');
+  const role = useRole();
+  const queryClient = useQueryClient();
 
-  const selected = GIVING_TYPES.find((t) => t.key === type)!;
+  const [type, setType] = useState<GivingType>('TITHE');
+  const [amount, setAmount] = useState('');
+  const [amountError, setAmountError] = useState('');
+  const [date, setDate] = useState(todayIso);
+  const [momoRef, setMomoRef] = useState('');
+
+  const [memberSearch, setMemberSearch] = useState('');
+  const [selectedMember, setSelectedMember] = useState<Pick<Member, 'id' | 'fullName'> | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const debouncedSearch = useDebounce(memberSearch, 400);
+
+  const needsMember = type === 'TITHE' || type === 'WELFARE';
+  const paymentMonth = date.substring(0, 7);
+
+  const { data: memberResults, isFetching: searchingMembers } = useQuery({
+    queryKey: ['member-search', debouncedSearch],
+    queryFn: () => membersApi.list({ search: debouncedSearch, size: 10 }),
+    enabled: showPicker && debouncedSearch.length >= 2,
+  });
+
+  const { mutate: submit, isPending } = useMutation({
+    mutationFn: () => {
+      const parsedAmount = parseFloat(amount);
+      if (type === 'OFFERING') {
+        return givingApi.recordOffering({ serviceDate: date, amount: parsedAmount });
+      }
+      if (type === 'TITHE') {
+        return givingApi.recordTithe({
+          memberId: selectedMember!.id,
+          amount: parsedAmount,
+          paymentDate: date,
+          paymentMonth,
+          momoReference: momoRef.trim() || undefined,
+        });
+      }
+      return givingApi.recordWelfare({
+        memberId: selectedMember!.id,
+        amountPaid: parsedAmount,
+        paymentDate: date,
+        paymentMonth,
+        momoReference: momoRef.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['giving'] });
+      queryClient.invalidateQueries({ queryKey: ['finances'] });
+      haptics.success();
+      router.back();
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err?.friendlyMessage ?? 'Failed to record payment. Please try again.');
+      haptics.error();
+    },
+  });
 
   const handleSubmit = useCallback(() => {
     setAmountError('');
-    const numericAmount = parseFloat(amount);
-    if (!amount.trim() || isNaN(numericAmount)) {
-      setAmountError('Please enter an amount.');
+    const parsedAmount = parseFloat(amount);
+    if (!amount.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setAmountError('Enter a valid amount greater than 0.');
       haptics.error();
       return;
     }
-    if (numericAmount <= 0) {
-      setAmountError('Amount must be greater than 0.');
+    if (needsMember && !selectedMember) {
+      Alert.alert('Select a member', 'Please search and select the member for this payment.');
       haptics.error();
       return;
     }
-    // Giving is recorded by the Financial Secretary on the backend.
-    // This screen logs an intention; the FinSec confirms it.
-    haptics.give();
-    router.back();
-  }, [amount, type]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      Alert.alert('Invalid date', 'Enter the date as YYYY-MM-DD (e.g. 2026-06-28).');
+      haptics.error();
+      return;
+    }
+    submit();
+  }, [amount, date, needsMember, selectedMember, submit]);
+
+  const handleSelectMember = (member: Member) => {
+    setSelectedMember({ id: member.id, fullName: member.fullName });
+    setMemberSearch('');
+    setShowPicker(false);
+    haptics.light();
+  };
+
+  const handleTypeChange = (newType: GivingType) => {
+    haptics.light();
+    setType(newType);
+    setSelectedMember(null);
+    setMemberSearch('');
+    setShowPicker(false);
+  };
+
+  // Non-FinSec: read-only info screen
+  if (role !== 'FINANCIAL_SECRETARY') {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={Gradients.darkWorship} style={StyleSheet.absoluteFill} />
+        <View style={[styles.infoWrap, { paddingTop: insets.top + 32 }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <Text style={styles.closeIcon}>✕</Text>
+          </TouchableOpacity>
+          <Text style={styles.infoIcon}>🙏</Text>
+          <Text style={styles.infoHeading}>Your giving matters</Text>
+          <Text style={styles.infoBody}>
+            Payments are recorded by your church's Financial Secretary. Speak to them to record your
+            tithe, offering, or welfare contribution.
+          </Text>
+          <TouchableOpacity
+            style={styles.historyBtn}
+            onPress={() => router.push('/giving/history')}
+            accessibilityRole="button"
+            accessibilityLabel="View my giving history"
+          >
+            <Text style={styles.historyBtnText}>View my giving history</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const selected = GIVING_TYPES.find((t) => t.key === type)!;
 
   return (
     <View style={styles.container}>
@@ -67,11 +182,16 @@ export default function NewGivingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Close">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
-            <Text style={styles.heading}>Make a contribution</Text>
-            <Text style={styles.sub}>Your giving builds God's Kingdom</Text>
+            <Text style={styles.heading}>Record payment</Text>
+            <Text style={styles.sub}>Financial Secretary — record a member's contribution</Text>
           </View>
 
           {/* Type selector */}
@@ -80,7 +200,7 @@ export default function NewGivingScreen() {
               {GIVING_TYPES.map((t) => (
                 <TouchableOpacity
                   key={t.key}
-                  onPress={() => { haptics.light(); setType(t.key); }}
+                  onPress={() => handleTypeChange(t.key)}
                   style={[
                     styles.typeCard,
                     { borderColor: type === t.key ? t.color : 'rgba(255,255,255,0.1)' },
@@ -99,13 +219,77 @@ export default function NewGivingScreen() {
             </View>
           </ScrollReveal>
 
-          {/* Amount */}
           <ScrollReveal delay={200}>
             <View style={styles.card}>
               <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, styles.glassOverlay]} />
 
-              <Text style={styles.cardLabel}>{selected.label} amount</Text>
+              {/* Member picker — TITHE and WELFARE only */}
+              {needsMember && (
+                <View style={styles.memberSection}>
+                  <Text style={styles.cardLabel}>Member *</Text>
+                  {selectedMember ? (
+                    <TouchableOpacity
+                      style={styles.selectedMember}
+                      onPress={() => {
+                        setSelectedMember(null);
+                        setShowPicker(true);
+                        haptics.light();
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Selected: ${selectedMember.fullName}. Tap to change.`}
+                    >
+                      <Text style={styles.selectedMemberName}>{selectedMember.fullName}</Text>
+                      <Text style={styles.changeText}>Change</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      <KlinkInput
+                        label="Search by name..."
+                        value={memberSearch}
+                        onChangeText={(v) => {
+                          setMemberSearch(v);
+                          setShowPicker(true);
+                        }}
+                        autoCapitalize="words"
+                        containerStyle={{ marginBottom: 0 }}
+                      />
+                      {showPicker && (
+                        <View style={styles.pickerList}>
+                          {searchingMembers && (
+                            <ActivityIndicator color={Colors.gold} style={styles.pickerSpinner} />
+                          )}
+                          {!searchingMembers && debouncedSearch.length < 2 && (
+                            <Text style={styles.pickerHint}>Type at least 2 characters to search</Text>
+                          )}
+                          {!searchingMembers &&
+                            debouncedSearch.length >= 2 &&
+                            (memberResults?.content?.length ?? 0) === 0 && (
+                              <Text style={styles.pickerHint}>No members found</Text>
+                            )}
+                          {(memberResults?.content ?? []).map((m: Member) => (
+                            <TouchableOpacity
+                              key={m.id}
+                              onPress={() => handleSelectMember(m)}
+                              style={styles.pickerItem}
+                              accessibilityRole="button"
+                              accessibilityLabel={m.fullName}
+                            >
+                              <Text style={styles.pickerItemName}>{m.fullName}</Text>
+                              <Text style={styles.pickerItemRole}>
+                                {m.role.replace(/_/g, ' ')}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
+
+              {/* Amount */}
+              <Text style={styles.cardLabel}>{selected.label} amount (GHS) *</Text>
               <View style={styles.amountRow}>
                 <Text style={[styles.currency, { color: selected.color }]}>GHS</Text>
                 <KlinkInput
@@ -116,22 +300,32 @@ export default function NewGivingScreen() {
                   containerStyle={styles.amountInput}
                 />
               </View>
+              {amountError ? <Text style={styles.fieldError}>{amountError}</Text> : null}
 
-              {amountError ? (
-                <Text style={{ color: '#E74C3C', fontSize: 12, marginTop: -8 }}>{amountError}</Text>
-              ) : null}
-
+              {/* Date */}
               <KlinkInput
-                label="Note (optional)"
-                value={note}
-                onChangeText={setNote}
-                multiline
+                label="Date (YYYY-MM-DD)"
+                value={date}
+                onChangeText={setDate}
+                keyboardType="numbers-and-punctuation"
+                autoCapitalize="none"
               />
 
+              {/* MoMo reference — TITHE and WELFARE only */}
+              {needsMember && (
+                <KlinkInput
+                  label="MoMo / Cheque reference (optional)"
+                  value={momoRef}
+                  onChangeText={setMomoRef}
+                  autoCapitalize="none"
+                />
+              )}
+
               <KlinkButton
-                label={`Give ${amount ? `GHS ${amount}` : 'now'}`}
+                label={`Record ${selected.label}`}
                 onPress={handleSubmit}
-                disabled={!amount.trim()}
+                disabled={!amount.trim() || isPending}
+                loading={isPending}
               />
             </View>
           </ScrollReveal>
@@ -153,7 +347,12 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.sm },
   closeBtn: { alignSelf: 'flex-start', width: 44, height: 44, justifyContent: 'center' },
   closeIcon: { color: Colors.white, fontSize: 20 },
-  heading: { color: Colors.white, fontSize: FontSize.h2, fontWeight: FontWeight.bold, letterSpacing: LetterSpacing.tight },
+  heading: {
+    color: Colors.white,
+    fontSize: FontSize.h2,
+    fontWeight: FontWeight.bold,
+    letterSpacing: LetterSpacing.tight,
+  },
   sub: { color: Colors.darkMuted, fontSize: FontSize.body },
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   typeCard: {
@@ -178,8 +377,96 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
   },
+  memberSection: { gap: Spacing.sm },
   cardLabel: { color: Colors.white, fontSize: FontSize.body, fontWeight: FontWeight.medium },
+  selectedMember: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244,164,41,0.15)',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 44,
+  },
+  selectedMemberName: {
+    color: Colors.white,
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.medium,
+    flex: 1,
+  },
+  changeText: { color: Colors.gold, fontSize: FontSize.small },
+  pickerList: {
+    backgroundColor: 'rgba(26,31,62,0.98)',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+    maxHeight: 200,
+  },
+  pickerSpinner: { padding: Spacing.md },
+  pickerHint: {
+    color: Colors.darkMuted,
+    fontSize: FontSize.small,
+    padding: Spacing.md,
+    textAlign: 'center',
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    minHeight: 44,
+  },
+  pickerItemName: {
+    color: Colors.white,
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.medium,
+  },
+  pickerItemRole: { color: Colors.darkMuted, fontSize: FontSize.caption },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   currency: { fontSize: FontSize.h3, fontWeight: FontWeight.bold, marginBottom: 4 },
   amountInput: { flex: 1, marginBottom: 0 },
+  fieldError: { color: Colors.red, fontSize: FontSize.caption, marginTop: -8 },
+  // Non-FinSec info view
+  infoWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+    gap: Spacing.md,
+  },
+  infoIcon: { fontSize: 48, marginBottom: Spacing.md },
+  infoHeading: {
+    color: Colors.white,
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    textAlign: 'center',
+  },
+  infoBody: {
+    color: Colors.darkMuted,
+    fontSize: FontSize.body,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  historyBtn: {
+    marginTop: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  historyBtnText: {
+    color: Colors.gold,
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semiBold,
+  },
 });
