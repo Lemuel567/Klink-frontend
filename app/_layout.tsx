@@ -18,6 +18,8 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../src/store/authStore';
 import { useThemeStore } from '../src/store/themeStore';
+import { useSoundStore } from '../src/store/soundStore';
+import { soundManager } from '../src/utils/soundManager';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,6 +35,7 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const { initialize } = useAuthStore();
   const { initialize: initTheme } = useThemeStore();
+  const { initialize: initSound } = useSoundStore();
 
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_700Bold,
@@ -45,7 +48,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function prepare() {
-      await Promise.all([initialize(), initTheme()]);
+      await Promise.all([initialize(), initTheme(), initSound(), soundManager.initialize()]);
       if (fontsLoaded || fontError) {
         await SplashScreen.hideAsync();
       }

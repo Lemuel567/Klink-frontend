@@ -189,7 +189,44 @@ The `ENV` constant in `constants.ts` controls which backend URL is used:
 
 ---
 
-## SECTION 8 — babel.config.js (do not modify)
+## SECTION 8 — Audio System
+
+### Overview
+Two audio features are built using `expo-av ~15.0.1`:
+1. **Splash chime** — plays once when the app opens
+2. **Home screen background music** — soft worship song that loops at volume 0.25
+
+### Audio files (must be present before `npx expo start`)
+Both files live in `assets/audio/`. Metro bundler requires them at build time.
+
+| File | Purpose | Duration | Volume |
+|------|---------|----------|--------|
+| `app-open.mp3` | Splash screen chime | 2–3 sec | 0.8 |
+| `worship-background.mp3` | Home screen loop | 3–5 min | 0.25 |
+
+Download from: **pixabay.com/music** (free for commercial use)
+- Search `"church bell"` or `"worship chime"` → rename to `app-open.mp3`
+- Search `"worship ambient"` or `"gospel instrumental"` → rename to `worship-background.mp3`
+
+### Key files
+| File | Role |
+|------|------|
+| `src/utils/soundManager.ts` | Singleton class wrapping expo-av Audio.Sound |
+| `src/store/soundStore.ts` | Zustand store: `musicEnabled` persisted to expo-secure-store |
+| `src/utils/constants.ts` | `STORAGE_KEYS.musicEnabled = 'music_enabled'` |
+
+### Behaviour
+- **Splash** (`app/(auth)/splash.tsx`): calls `soundManager.playAppOpen()` on mount; auto-unloads when finished
+- **Home** (`app/(tabs)/home.tsx`): plays/stops reactively when `musicEnabled` changes; pauses on `AppState background`, resumes on `AppState active`; stops on unmount
+- **Profile** (`app/(tabs)/profile.tsx`): Worship Music toggle (♪ icon) in the settings section; persists to SecureStore; immediately calls `soundManager.playBackgroundMusic()` or `stopBackgroundMusic()`
+- **_layout.tsx**: calls `soundManager.initialize()` and `initSound()` in parallel at startup
+
+### Graceful degradation
+All soundManager methods are wrapped in try-catch. Corrupt/undecodable files degrade silently — no user-visible error, no app crash. Files MUST exist at bundle time (Metro requirement).
+
+---
+
+## SECTION 9 — babel.config.js (do not modify)
 
 ```js
 module.exports = function(api) {
