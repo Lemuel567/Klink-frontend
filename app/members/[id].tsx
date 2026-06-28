@@ -2,27 +2,54 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KlinkAvatar, RoleBadge } from '../../src/components/common/KlinkAvatar';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { MemberCardSkeleton } from '../../src/components/common/KlinkSkeleton';
 import { membersApi } from '../../src/api/members';
+import { useRole } from '../../src/store/authStore';
+import { confirmDeactivate, confirmReactivate } from '../../src/utils/confirmDelete';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useHaptics } from '../../src/hooks/useHaptics';
 import { formatDate, formatPhoneDisplay, formatRole } from '../../src/utils/formatters';
 
 export default function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
+  const role = useRole();
+  const queryClient = useQueryClient();
+
+  const canDeactivate = role === 'PASTOR' || role === 'ELDER';
+  const canReactivate = role === 'PASTOR' || role === 'ELDER' || role === 'MANAGER';
 
   const { data: member, isLoading } = useQuery({
     queryKey: ['member', id],
     queryFn: () => membersApi.get(id!),
     enabled: !!id,
+  });
+
+  const { mutate: deactivate, isPending: deactivating } = useMutation({
+    mutationFn: () => membersApi.deactivate(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', id] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      haptics.medium();
+    },
+  });
+
+  const { mutate: reactivate, isPending: reactivating } = useMutation({
+    mutationFn: () => membersApi.reactivate(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', id] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      haptics.medium();
+    },
   });
 
   if (isLoading) {
@@ -109,6 +136,38 @@ export default function MemberDetailScreen() {
             />
           </InfoSection>
         </ScrollReveal>
+
+        {/* Deactivate / Reactivate */}
+        {member.status === 'ACTIVE' && canDeactivate && (
+          <ScrollReveal delay={300}>
+            <TouchableOpacity
+              onPress={() => confirmDeactivate(member.fullName, () => deactivate())}
+              disabled={deactivating}
+              style={[styles.actionBtn, styles.deactivateBtn, deactivating && styles.btnDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel={`Deactivate ${member.fullName}`}
+            >
+              <Text style={styles.deactivateBtnText}>
+                {deactivating ? 'Deactivating...' : 'Deactivate member'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollReveal>
+        )}
+        {member.status === 'DEACTIVATED' && canReactivate && (
+          <ScrollReveal delay={300}>
+            <TouchableOpacity
+              onPress={() => confirmReactivate(member.fullName, () => reactivate())}
+              disabled={reactivating}
+              style={[styles.actionBtn, styles.reactivateBtn, reactivating && styles.btnDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel={`Reactivate ${member.fullName}`}
+            >
+              <Text style={styles.reactivateBtnText}>
+                {reactivating ? 'Reactivating...' : 'Reactivate member'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollReveal>
+        )}
       </ScrollView>
     </View>
   );
@@ -196,4 +255,25 @@ const styles = StyleSheet.create({
   },
   infoLabel: { fontSize: FontSize.small },
   infoValue: { fontSize: FontSize.small, fontWeight: FontWeight.medium, flex: 1, textAlign: 'right' },
+  actionBtn: {
+    marginHorizontal: Spacing.pagePadding,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.xl,
+    alignItems: 'center',
+    minHeight: 52,
+    justifyContent: 'center',
+  },
+  deactivateBtn: {
+    borderWidth: 1.5,
+    borderColor: Colors.red,
+    backgroundColor: 'rgba(220,38,38,0.08)',
+  },
+  reactivateBtn: {
+    borderWidth: 1.5,
+    borderColor: Colors.green,
+    backgroundColor: 'rgba(45,106,79,0.1)',
+  },
+  btnDisabled: { opacity: 0.5 },
+  deactivateBtnText: { color: Colors.red, fontSize: FontSize.body, fontWeight: FontWeight.semiBold },
+  reactivateBtnText: { color: Colors.green, fontSize: FontSize.body, fontWeight: FontWeight.semiBold },
 });

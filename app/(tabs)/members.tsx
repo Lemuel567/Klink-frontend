@@ -7,11 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MemberCard } from '../../src/components/screens/MemberCard';
 import { MemberCardSkeleton } from '../../src/components/common/KlinkSkeleton';
+import { EmptyState } from '../../src/components/common/EmptyState';
 import { membersApi, Member } from '../../src/api/members';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useDebounce } from '../../src/hooks/useDebounce';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -19,6 +21,7 @@ export default function MembersScreen() {
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 400);
 
   const {
     data,
@@ -29,9 +32,9 @@ export default function MembersScreen() {
     refetch,
     isRefetching,
   } = useInfiniteQuery({
-    queryKey: ['members', search],
+    queryKey: ['members', debouncedSearch],
     queryFn: ({ pageParam = 0 }) =>
-      membersApi.list({ page: pageParam, size: PAGE_SIZE }),
+      membersApi.list({ page: pageParam, size: PAGE_SIZE, search: debouncedSearch || undefined }),
     getNextPageParam: (last) =>
       last.number + 1 < last.totalPages ? last.number + 1 : undefined,
     initialPageParam: 0,
@@ -91,11 +94,11 @@ export default function MembersScreen() {
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                No members found
-              </Text>
-            </View>
+            <EmptyState
+              icon="👥"
+              title={debouncedSearch ? 'No members match your search' : 'No members yet'}
+              subtitle={debouncedSearch ? 'Try a different name or clear the search' : 'Members who join with your church code will appear here'}
+            />
           }
           ListFooterComponent={
             isFetchingNextPage ? (
@@ -145,6 +148,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   search: { fontSize: FontSize.body, flex: 1 },
-  empty: { padding: Spacing.xxxl, alignItems: 'center' },
-  emptyText: { fontSize: FontSize.body },
 });

@@ -26,12 +26,13 @@ import {
   SermonCardSkeleton,
   StatCardSkeleton,
 } from '../../src/components/common/KlinkSkeleton';
+import { EmptyState } from '../../src/components/common/EmptyState';
 import { announcementsApi, Announcement } from '../../src/api/announcements';
 import { sermonsApi, Sermon } from '../../src/api/sermons';
 import { eventsApi, ChurchEvent } from '../../src/api/events';
 import { projectsApi, Project } from '../../src/api/projects';
 import { useParallax } from '../../src/hooks/useParallax';
-import { useAuthStore, useUser } from '../../src/store/authStore';
+import { useAuthStore, useUser, useRole } from '../../src/store/authStore';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -49,6 +50,8 @@ const DAILY_VERSE = {
 export default function HomeScreen() {
   const { theme, isDark } = useTheme();
   const user = useUser();
+  const role = useRole();
+  const canManageContent = role === 'PASTOR' || role === 'ELDER' || role === 'MANAGER';
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
   const { scrollHandler, bgStyle, midStyle, headerOpacity } = useParallax(HERO_HEIGHT);
@@ -127,32 +130,48 @@ export default function HomeScreen() {
         </ScrollReveal>
 
         {/* Active projects */}
-        {(projects?.content?.length ?? 0) > 0 && (
-          <View style={styles.section}>
-            <SectionHeader label="Active Projects" onSeeAll={() => router.push('/projects')} />
-            {loadingProjects ? (
-              <SermonCardSkeleton />
-            ) : (
-              projects?.content?.slice(0, 2).map((p: Project, i: number) => (
-                <ProjectCard
-                  key={p.id}
-                  project={p}
-                  index={i}
-                  onPress={() => router.push(`/projects/${p.id}`)}
-                />
-              ))
-            )}
-          </View>
-        )}
+        <View style={styles.section}>
+          <SectionHeader label="Active Projects" onSeeAll={() => router.push('/projects')} />
+          {loadingProjects ? (
+            <SermonCardSkeleton />
+          ) : (projects?.content?.length ?? 0) > 0 ? (
+            projects?.content?.slice(0, 2).map((p: Project, i: number) => (
+              <ProjectCard
+                key={p.id}
+                project={p}
+                index={i}
+                onPress={() => router.push(`/projects/${p.id}`)}
+              />
+            ))
+          ) : (
+            <EmptyState
+              icon="🏗"
+              title="No active projects"
+              subtitle="Fundraising and construction projects will appear here"
+              actionLabel={canManageContent ? 'Create project' : undefined}
+              onAction={canManageContent ? () => router.push('/projects') : undefined}
+            />
+          )}
+        </View>
 
         {/* Announcements */}
         <View style={styles.section}>
           <SectionHeader label="Announcements" onSeeAll={() => router.push('/announcements')} />
           {loadingAnn
             ? Array.from({ length: 3 }, (_, i) => <AnnouncementSkeleton key={i} />)
-            : announcements?.content?.map((a: Announcement, i: number) => (
+            : (announcements?.content?.length ?? 0) > 0
+            ? announcements?.content?.map((a: Announcement, i: number) => (
                 <AnnouncementCard key={a.id} announcement={a} index={i} />
-              ))}
+              ))
+            : (
+              <EmptyState
+                icon="📢"
+                title="No announcements yet"
+                subtitle="Church announcements will appear here"
+                actionLabel={canManageContent ? 'Post announcement' : undefined}
+                onAction={canManageContent ? () => router.push('/announcements/new') : undefined}
+              />
+            )}
         </View>
 
         {/* Upcoming events */}
@@ -160,9 +179,19 @@ export default function HomeScreen() {
           <SectionHeader label="Upcoming Events" onSeeAll={() => router.push('/events')} />
           {loadingEvents
             ? Array.from({ length: 2 }, (_, i) => <AnnouncementSkeleton key={i} />)
-            : events?.content?.slice(0, 3).map((e: ChurchEvent, i: number) => (
+            : (events?.content?.length ?? 0) > 0
+            ? events?.content?.slice(0, 3).map((e: ChurchEvent, i: number) => (
                 <EventCard key={e.id} event={e} index={i} />
-              ))}
+              ))
+            : (
+              <EmptyState
+                icon="📅"
+                title="No upcoming events"
+                subtitle="Upcoming church events and services will appear here"
+                actionLabel={canManageContent ? 'Add event' : undefined}
+                onAction={canManageContent ? () => router.push('/events') : undefined}
+              />
+            )}
         </View>
 
         {/* Recent sermons */}
@@ -170,9 +199,19 @@ export default function HomeScreen() {
           <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/(tabs)/sermons')} />
           {loadingSermons
             ? Array.from({ length: 2 }, (_, i) => <SermonCardSkeleton key={i} />)
-            : sermons?.content?.slice(0, 3).map((s: Sermon, i: number) => (
+            : (sermons?.content?.length ?? 0) > 0
+            ? sermons?.content?.slice(0, 3).map((s: Sermon, i: number) => (
                 <SermonCard key={s.id} sermon={s} index={i} onPress={() => router.push(`/sermons/${s.id}`)} />
-              ))}
+              ))
+            : (
+              <EmptyState
+                icon="🎙"
+                title="No sermons recorded"
+                subtitle="Sermons and messages from your pastor will appear here"
+                actionLabel={canManageContent ? 'Add sermon' : undefined}
+                onAction={canManageContent ? () => router.push('/(tabs)/sermons') : undefined}
+              />
+            )}
         </View>
       </Animated.ScrollView>
 

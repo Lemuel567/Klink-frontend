@@ -20,6 +20,7 @@ import { KlinkToast } from '../../src/components/common/KlinkToast';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { churchApi } from '../../src/api/church';
 import { useUser } from '../../src/store/authStore';
+import { confirmAction } from '../../src/utils/confirmDelete';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -116,18 +117,12 @@ export default function ChurchSettingsScreen() {
   });
 
   const confirmRegenerate = () => {
-    Alert.alert(
-      'Regenerate join code?',
-      'The current code will stop working immediately. Members who have not yet joined will need the new code.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Regenerate',
-          style: 'destructive',
-          onPress: () => regenerate(),
-        },
-      ],
-    );
+    confirmAction({
+      title: 'Regenerate join code?',
+      message: 'The current code will stop working immediately. Members who have not yet joined will need the new code.',
+      confirmLabel: 'Regenerate',
+      onConfirm: () => regenerate(),
+    });
   };
 
   // ── Copy join code ─────────────────────────────────────────────────────────
