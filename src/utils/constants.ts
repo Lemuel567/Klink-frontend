@@ -44,6 +44,7 @@ export const STORAGE_KEYS = {
   colorScheme: 'klink_color_scheme',
   onboardingComplete: 'klink_onboarding_done',
   fcmToken: 'klink_fcm_token',
+  musicEnabled: 'music_enabled',
 } as const;
 
 // ─── PAGINATION ──────────────────────────────────────────────────────────────

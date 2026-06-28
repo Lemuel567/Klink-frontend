@@ -12,6 +12,8 @@ import { membersApi } from '../../src/api/members';
 import { givingApi } from '../../src/api/giving';
 import { useAuthStore, useUser } from '../../src/store/authStore';
 import { useThemeStore } from '../../src/store/themeStore';
+import { useSoundStore } from '../../src/store/soundStore';
+import { soundManager } from '../../src/utils/soundManager';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -25,6 +27,7 @@ const PHOTO_HEIGHT = height * 0.35;
 export default function ProfileScreen() {
   const { theme, isDark } = useTheme();
   const { setPreference } = useThemeStore();
+  const { musicEnabled, setMusicEnabled } = useSoundStore();
   const user = useUser();
   const { logout } = useAuthStore();
   const insets = useSafeAreaInsets();
@@ -114,6 +117,30 @@ export default function ProfileScreen() {
             <Switch
               value={isDark}
               onValueChange={(v) => setPreference(v ? 'dark' : 'light')}
+              trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
+            />
+          </View>
+          <View style={styles.switchRow}>
+            <View style={styles.musicLabelWrap}>
+              <View style={[styles.musicIcon, { backgroundColor: musicEnabled ? 'rgba(244,164,41,0.15)' : 'rgba(139,143,168,0.15)' }]}>
+                <Text style={[styles.musicNote, { color: musicEnabled ? Colors.gold : Colors.darkMuted }]}>♪</Text>
+              </View>
+              <View>
+                <Text style={[styles.menuLabel, { color: theme.text }]}>Worship Music</Text>
+                <Text style={[styles.musicSubtitle, { color: theme.textMuted }]}>Background music on home screen</Text>
+              </View>
+            </View>
+            <Switch
+              value={musicEnabled}
+              onValueChange={(enabled) => {
+                haptics.light();
+                setMusicEnabled(enabled);
+                if (enabled) {
+                  soundManager.playBackgroundMusic();
+                } else {
+                  soundManager.stopBackgroundMusic();
+                }
+              }}
               trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
             />
           </View>
@@ -217,4 +244,25 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   logoutWrap: { paddingHorizontal: Spacing.pagePadding, marginTop: Spacing.md },
+  musicLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  musicIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  musicNote: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  musicSubtitle: {
+    fontSize: FontSize.caption,
+    marginTop: 1,
+  },
 });

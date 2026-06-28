@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
+  AppState,
   Dimensions,
   RefreshControl,
   ScrollView,
@@ -32,6 +33,8 @@ import { eventsApi, ChurchEvent } from '../../src/api/events';
 import { projectsApi, Project } from '../../src/api/projects';
 import { useParallax } from '../../src/hooks/useParallax';
 import { useAuthStore, useUser } from '../../src/store/authStore';
+import { useSoundStore } from '../../src/store/soundStore';
+import { soundManager } from '../../src/utils/soundManager';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -48,10 +51,37 @@ const DAILY_VERSE = {
 
 export default function HomeScreen() {
   const { theme, isDark } = useTheme();
+  const { musicEnabled } = useSoundStore();
   const user = useUser();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
   const { scrollHandler, bgStyle, midStyle, headerOpacity } = useParallax(HERO_HEIGHT);
+
+  // Start/stop music reactively when the preference changes
+  useEffect(() => {
+    if (musicEnabled) {
+      soundManager.playBackgroundMusic();
+    } else {
+      soundManager.stopBackgroundMusic();
+    }
+  }, [musicEnabled]);
+
+  // Pause when app goes to background; resume when it returns (only if still loaded)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background') {
+        soundManager.pauseBackgroundMusic();
+      } else if (nextAppState === 'active') {
+        // resumeBackgroundMusic is a no-op when backgroundMusic is null (i.e. stopped by toggle)
+        soundManager.resumeBackgroundMusic();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      soundManager.stopBackgroundMusic();
+    };
+  }, []);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';

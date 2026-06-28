@@ -18,6 +18,7 @@ import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { Duration, EasingPresets, SpringConfig } from '../../src/theme/animations';
 import { useAuthStore } from '../../src/store/authStore';
+import { soundManager } from '../../src/utils/soundManager';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,6 +48,11 @@ export default function SplashScreen() {
       router.replace('/(auth)/onboarding');
     }
   }
+
+  useEffect(() => {
+    // Play chime as soon as splash appears — runs in parallel with logo animation
+    soundManager.playAppOpen().catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Start gradient morph loop
