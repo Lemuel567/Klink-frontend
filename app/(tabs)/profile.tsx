@@ -11,6 +11,7 @@ import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { membersApi } from '../../src/api/members';
 import { givingApi } from '../../src/api/giving';
 import { useAuthStore, useUser } from '../../src/store/authStore';
+import { useThemeStore } from '../../src/store/themeStore';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -23,6 +24,7 @@ const PHOTO_HEIGHT = height * 0.35;
 
 export default function ProfileScreen() {
   const { theme, isDark } = useTheme();
+  const { setPreference } = useThemeStore();
   const user = useUser();
   const { logout } = useAuthStore();
   const insets = useSafeAreaInsets();
@@ -86,7 +88,7 @@ export default function ProfileScreen() {
       {/* Stats row */}
       <ScrollReveal delay={0}>
         <View style={styles.statsRow}>
-          <StatItem label="Member since" value={user ? formatDate(new Date().toISOString()) : '—'} />
+          <StatItem label="Member since" value="—" />
           <View style={styles.statDivider} />
           <StatItem label="Given this year" value={formatCurrency(totalGiven)} highlight />
           <View style={styles.statDivider} />
@@ -109,7 +111,11 @@ export default function ProfileScreen() {
           <MenuItem label="Notifications" onPress={() => {}} theme={theme} />
           <View style={styles.switchRow}>
             <Text style={[styles.menuLabel, { color: theme.text }]}>Dark mode</Text>
-            <Switch value={isDark} trackColor={{ true: Colors.gold, false: Colors.darkSurface }} />
+            <Switch
+              value={isDark}
+              onValueChange={(v) => setPreference(v ? 'dark' : 'light')}
+              trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
+            />
           </View>
         </View>
       </ScrollReveal>
