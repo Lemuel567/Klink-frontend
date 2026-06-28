@@ -17,6 +17,7 @@ import {
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../src/store/authStore';
+import { useThemeStore } from '../src/store/themeStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,7 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const { initialize } = useAuthStore();
+  const { initialize: initTheme } = useThemeStore();
 
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_700Bold,
@@ -43,7 +45,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function prepare() {
-      await initialize();
+      await Promise.all([initialize(), initTheme()]);
       if (fontsLoaded || fontError) {
         await SplashScreen.hideAsync();
       }

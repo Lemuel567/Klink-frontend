@@ -56,7 +56,7 @@ export default function HomeScreen() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const { data: announcements, isLoading: loadingAnn, refetch: refetchAnn } =
+  const { data: announcements, isLoading: loadingAnn, isRefetching: refetchingAnn, refetch: refetchAnn } =
     useQuery({ queryKey: ['announcements'], queryFn: () => announcementsApi.list({ size: 5 }) });
 
   const { data: sermons, isLoading: loadingSermons, refetch: refetchSermons } =
@@ -68,7 +68,7 @@ export default function HomeScreen() {
   const { data: projects, isLoading: loadingProjects, refetch: refetchProjects } =
     useQuery({ queryKey: ['projects'], queryFn: () => projectsApi.list({ size: 4, status: 'FUNDRAISING' }) });
 
-  const isRefreshing = false;
+  const isRefreshing = refetchingAnn;
   const handleRefresh = useCallback(() => {
     refetchAnn();
     refetchSermons();
@@ -183,9 +183,10 @@ export default function HomeScreen() {
 }
 
 function SectionHeader({ label, onSeeAll }: { label: string; onSeeAll?: () => void }) {
+  const { theme } = useTheme();
   return (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{label}</Text>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>{label}</Text>
       {onSeeAll && (
         <TouchableOpacity onPress={onSeeAll} accessibilityRole="link">
           <Text style={styles.seeAll}>See all</Text>
@@ -272,7 +273,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionTitle: {
-    color: Colors.darkText,
     fontSize: FontSize.h4,
     fontWeight: FontWeight.bold,
   },
