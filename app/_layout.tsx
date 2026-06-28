@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,13 +22,14 @@ import { useThemeStore } from '../src/store/themeStore';
 import { useSoundStore } from '../src/store/soundStore';
 import { soundManager } from '../src/utils/soundManager';
 import { useTheme } from '../src/hooks/useTheme';
+import { MusicIndicator } from '../src/components/common/MusicIndicator';
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
       retry: 1,
     },
   },
@@ -48,15 +50,34 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  // Initialize all stores, then start global background music
   useEffect(() => {
     async function prepare() {
       await Promise.all([initialize(), initTheme(), initSound(), soundManager.initialize()]);
       if (fontsLoaded || fontError) {
         await SplashScreen.hideAsync();
       }
+      // Start global music after all stores are ready — preference already synced
+      if (soundManager.isMusicEnabled()) {
+        soundManager.playBackgroundMusic().catch(() => {});
+      }
     }
     prepare();
   }, [fontsLoaded, fontError]);
+
+  // Global AppState listener — pauses/resumes across every screen
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        soundManager.pauseBackgroundMusic().catch(() => {});
+      } else if (nextAppState === 'active') {
+        if (soundManager.isMusicEnabled()) {
+          soundManager.resumeBackgroundMusic().catch(() => {});
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -69,6 +90,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="profile/edit" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="church/settings" options={{ presentation: 'modal', headerShown: false }} />
             <Stack.Screen name="members/[id]" options={{ presentation: 'modal' }} />
             <Stack.Screen name="giving/new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="giving/history" />
@@ -80,6 +102,8 @@ export default function RootLayout() {
             <Stack.Screen name="sermons/[id]" />
           </Stack>
         </QueryClientProvider>
+        {/* Floats over every screen — only visible when music is playing */}
+        <MusicIndicator />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

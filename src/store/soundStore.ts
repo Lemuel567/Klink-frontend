@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { STORAGE_KEYS } from '../utils/constants';
+import { soundManager } from '../utils/soundManager';
 
 interface SoundStore {
   musicEnabled: boolean;
@@ -15,7 +16,9 @@ export const useSoundStore = create<SoundStore>((set) => ({
     try {
       const stored = await SecureStore.getItemAsync(STORAGE_KEYS.musicEnabled);
       if (stored !== null) {
-        set({ musicEnabled: stored === 'true' });
+        const enabled = stored === 'true';
+        set({ musicEnabled: enabled });
+        soundManager.setMusicEnabled(enabled);
       }
     } catch {
       // ignore — default to enabled
@@ -24,6 +27,7 @@ export const useSoundStore = create<SoundStore>((set) => ({
 
   setMusicEnabled: async (enabled: boolean) => {
     set({ musicEnabled: enabled });
+    soundManager.setMusicEnabled(enabled);
     try {
       await SecureStore.setItemAsync(STORAGE_KEYS.musicEnabled, String(enabled));
     } catch {

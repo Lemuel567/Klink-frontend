@@ -192,37 +192,68 @@ The `ENV` constant in `constants.ts` controls which backend URL is used:
 ## SECTION 8 — Audio System
 
 ### Overview
-Two audio features are built using `expo-av ~15.0.1`:
-1. **Splash chime** — plays once when the app opens
-2. **Home screen background music** — soft worship song that loops at volume 0.25
+Two audio features built with `expo-av ~15.0.1`:
+1. **Splash chime** — plays once when the app opens, auto-stops after 3 sec
+2. **Global background music** — soft worship song loops at volume 0.25 across **every screen**
 
-### Audio files (must be present before `npx expo start`)
-Both files live in `assets/audio/`. Metro bundler requires them at build time.
+### Audio files (committed to repo — both present in `assets/audio/`)
+Metro requires both MP3 files at build time. They MUST exist before `npx expo start`.
 
-| File | Purpose | Duration | Volume |
-|------|---------|----------|--------|
-| `app-open.mp3` | Splash screen chime | 2–3 sec | 0.8 |
-| `worship-background.mp3` | Home screen loop | 3–5 min | 0.25 |
+| File | Size | Purpose | Volume | Notes |
+|------|------|---------|--------|-------|
+| `app-open.mp3` | ~1.9 MB | Splash chime | 0.8 | Fallback copy of worship-background.mp3 — replace with real 2–3 sec chime when available |
+| `worship-background.mp3` | ~1.9 MB | Global background loop | 0.25 | Loops across every screen; pauses on app background |
 
-Download from: **pixabay.com/music** (free for commercial use)
-- Search `"church bell"` or `"worship chime"` → rename to `app-open.mp3`
-- Search `"worship ambient"` or `"gospel instrumental"` → rename to `worship-background.mp3`
+To upgrade `app-open.mp3`: search **pixabay.com/music** for `"church bell"` or `"worship chime"` (free commercial), drop in `assets/audio/`.
 
 ### Key files
 | File | Role |
 |------|------|
-| `src/utils/soundManager.ts` | Singleton class wrapping expo-av Audio.Sound |
-| `src/store/soundStore.ts` | Zustand store: `musicEnabled` persisted to expo-secure-store |
+| `src/utils/soundManager.ts` | Singleton: expo-av Audio.Sound, triple-guard for double-play prevention |
+| `src/store/soundStore.ts` | Zustand: `musicEnabled` (reactive); persists to SecureStore; syncs soundManager |
+| `src/hooks/useSounds.ts` | Hook wrapper: all soundManager methods + `isMusicEnabled`/`setMusicEnabled` |
+| `src/components/common/MusicIndicator.tsx` | Floating "♪ Playing" pill; visible on every screen; pulse animation; tap → Profile |
 | `src/utils/constants.ts` | `STORAGE_KEYS.musicEnabled = 'music_enabled'` |
 
-### Behaviour
-- **Splash** (`app/(auth)/splash.tsx`): calls `soundManager.playAppOpen()` on mount; auto-unloads when finished
-- **Home** (`app/(tabs)/home.tsx`): plays/stops reactively when `musicEnabled` changes; pauses on `AppState background`, resumes on `AppState active`; stops on unmount
-- **Profile** (`app/(tabs)/profile.tsx`): Worship Music toggle (♪ icon) in the settings section; persists to SecureStore; immediately calls `soundManager.playBackgroundMusic()` or `stopBackgroundMusic()`
-- **_layout.tsx**: calls `soundManager.initialize()` and `initSound()` in parallel at startup
+### Music is managed globally in `app/_layout.tsx`
+- `prepare()` awaits all store initializations, then calls `soundManager.playBackgroundMusic()` if enabled
+- Single `AppState` listener at root level pauses on `background`/`inactive`, resumes on `active`
+- `<MusicIndicator />` rendered in `_layout.tsx` — floats over every screen
+
+### Music does NOT stop when navigating between screens
+Previously managed on the home tab (stopped on unmount). Now managed at the root layout — music never stops due to navigation.
+
+### Behaviour per screen
+| Screen | Music behaviour |
+|--------|----------------|
+| **Splash** | `soundManager.playAppOpen()` fires on mount; auto-stops at 3 sec |
+| **Home, Members, Giving, Profile, etc.** | Music plays continuously — no per-screen music code |
+| **Profile toggle** | `setMusicEnabled()` + direct `playBackgroundMusic()`/`stopBackgroundMusic()` + KlinkToast |
+| **Sermon detail** | Sermon audio PAUSES background music; background music RESUMES when sermon pauses/ends/user leaves |
+
+### Preference sync chain
+```
+SecureStore ←→ soundStore (Zustand, reactive UI)
+                    ↕ setMusicEnabled() syncs both
+              soundManager.musicEnabled (in-memory flag)
+```
+
+### Triple guard in `playBackgroundMusic()`
+```ts
+if (!this.musicEnabled) return;
+if (this.isMusicPlaying || this.isLoadingMusic || this.backgroundMusic !== null) return;
+```
+Prevents duplicate audio streams regardless of how many callers fire concurrently.
+
+### Sermon audio player
+`app/sermons/[id].tsx` has a real expo-av audio player:
+- On PLAY: pauses background music, loads and plays `sermon.audioUrl`
+- On PAUSE: resumes background music if enabled
+- On FINISH: resumes background music if enabled
+- On UNMOUNT: stops sermon audio, resumes background music
 
 ### Graceful degradation
-All soundManager methods are wrapped in try-catch. Corrupt/undecodable files degrade silently — no user-visible error, no app crash. Files MUST exist at bundle time (Metro requirement).
+All soundManager methods wrapped in try-catch. Corrupt files degrade silently — no crash, no user-visible error.
 
 ---
 
