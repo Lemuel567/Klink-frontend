@@ -20,6 +20,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { useThemeStore } from '../src/store/themeStore';
 import { useSoundStore } from '../src/store/soundStore';
 import { soundManager } from '../src/utils/soundManager';
+import { useTheme } from '../src/hooks/useTheme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,6 +37,7 @@ export default function RootLayout() {
   const { initialize } = useAuthStore();
   const { initialize: initTheme } = useThemeStore();
   const { initialize: initSound } = useSoundStore();
+  const { isDark } = useTheme();
 
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_700Bold,
@@ -62,7 +64,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
