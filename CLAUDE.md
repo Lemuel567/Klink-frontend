@@ -257,7 +257,61 @@ All soundManager methods wrapped in try-catch. Corrupt files degrade silently �
 
 ---
 
-## SECTION 9 — babel.config.js (do not modify)
+## SECTION 9 — Defensive Coding Patterns (Added 2026-06-28)
+
+### Error Boundary
+`src/components/common/ErrorBoundary.tsx` wraps the entire app in `_layout.tsx`.
+Any unhandled render error shows a "Try Again" screen instead of a white crash screen.
+
+### Offline Detection
+`src/store/networkStore.ts` — Zustand store with `isOffline` boolean.
+`src/api/client.ts` interceptor sets `isOffline = true` on network-level failures, `false` on any success.
+`src/components/common/OfflineBanner.tsx` slides in from top when offline, slides out when reconnected.
+Both are rendered in `app/_layout.tsx` so they appear on every screen.
+
+### Retry Logic
+`src/api/client.ts` retries automatically:
+- Network errors (ERR_NETWORK): up to 2 retries, 1s / 2s delay
+- 5xx server errors: up to 2 retries
+- 4xx errors (400, 401, 403, 404, 409, 429): never retried
+- Timeout errors: never retried
+
+### Friendly Error Messages
+`friendlyNetworkMessage()` in `client.ts` translates all AxiosError into user-facing English.
+Never shows "Network Error", "TypeError", or raw exception text to users.
+
+### Session Timeout Warning
+`app/_layout.tsx` schedules an Alert 2 minutes before JWT expiry.
+`authStore.login()` saves `SECURE_KEYS.tokenExpiry = Date.now() + ACCESS_TOKEN_TTL_MS` to SecureStore.
+Alert offers "Stay signed in" (triggers queryClient.invalidateQueries) or "Sign out".
+
+### Music Stops on Logout
+`authStore.logout()` calls `soundManager.stopBackgroundMusic()` before clearing auth state.
+No music bleeding across logout/login cycles.
+
+### Form Validation (Client-Side)
+- **Register**: full name required; at least one of email or phone required; email format validated; password min 8 chars; passwords must match; church code required for join mode; church name required for create mode.
+- **Giving**: amount must parse as a number > 0 before submission; inline error shown below field.
+
+### Global Unhandled Error Handler
+`app/_layout.tsx` installs `global.ErrorUtils.setGlobalHandler` to log any unhandled JS exception.
+
+### React Query Retry Config
+`queryClient` configured with: no retry on 4xx, up to 2 retries on 5xx with exponential backoff.
+Mutations have `retry: false` globally — failed mutations do not auto-retry.
+
+### Safe Array Usage
+Use optional chaining on all data from API responses:
+- `data?.pages?.flatMap(p => p.content) ?? []`
+- `announcements?.content?.map(...) ?? []`
+Never call `.map()` on a value that could be undefined.
+
+### Safe Navigation After Login
+`router.replace('/(tabs)/home')` used after login — back button cannot return to the login screen.
+
+---
+
+## SECTION 10 — babel.config.js (do not modify)
 
 ```js
 module.exports = function(api) {
