@@ -44,13 +44,38 @@ export default function RegisterScreen() {
     if (loading) return;
     setError('');
 
+    if (!fullName.trim()) {
+      setError('Full name is required.');
+      haptics.error();
+      return;
+    }
+    if (!email.trim() && !phone.trim()) {
+      setError('Please provide an email address or phone number.');
+      haptics.error();
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      haptics.error();
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      haptics.error();
+      return;
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       haptics.error();
       return;
     }
-    if (!fullName.trim()) {
-      setError('Full name is required.');
+    if (mode === 'join' && !churchCode.trim()) {
+      setError('Church code is required to join.');
+      haptics.error();
+      return;
+    }
+    if (mode === 'create' && !churchName.trim()) {
+      setError('Church name is required.');
       haptics.error();
       return;
     }

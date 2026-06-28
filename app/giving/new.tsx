@@ -33,10 +33,25 @@ export default function NewGivingScreen() {
   const [type, setType] = useState('TITHE');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [amountError, setAmountError] = useState('');
 
   const selected = GIVING_TYPES.find((t) => t.key === type)!;
 
   const handleSubmit = useCallback(() => {
+    setAmountError('');
+    const numericAmount = parseFloat(amount);
+    if (!amount.trim() || isNaN(numericAmount)) {
+      setAmountError('Please enter an amount.');
+      haptics.error();
+      return;
+    }
+    if (numericAmount <= 0) {
+      setAmountError('Amount must be greater than 0.');
+      haptics.error();
+      return;
+    }
+    // Giving is recorded by the Financial Secretary on the backend.
+    // This screen logs an intention; the FinSec confirms it.
     haptics.give();
     router.back();
   }, [amount, type]);
@@ -102,6 +117,10 @@ export default function NewGivingScreen() {
                 />
               </View>
 
+              {amountError ? (
+                <Text style={{ color: '#E74C3C', fontSize: 12, marginTop: -8 }}>{amountError}</Text>
+              ) : null}
+
               <KlinkInput
                 label="Note (optional)"
                 value={note}
@@ -109,7 +128,11 @@ export default function NewGivingScreen() {
                 multiline
               />
 
-              <KlinkButton label={`Give ${amount ? `GHS ${amount}` : 'now'}`} onPress={handleSubmit} disabled={!amount} />
+              <KlinkButton
+                label={`Give ${amount ? `GHS ${amount}` : 'now'}`}
+                onPress={handleSubmit}
+                disabled={!amount.trim()}
+              />
             </View>
           </ScrollReveal>
         </ScrollView>

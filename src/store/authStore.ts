@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { authApi, AuthResponse, MemberSummary } from '../api/auth';
-import { SECURE_KEYS } from '../utils/constants';
+import { SECURE_KEYS, ACCESS_TOKEN_TTL_MS } from '../utils/constants';
 
 interface AuthState {
   user: MemberSummary | null;
@@ -57,10 +57,12 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       emailVerified: data.emailVerified,
       phoneVerified: data.phoneVerified,
     };
+    const tokenExpiry = String(Date.now() + ACCESS_TOKEN_TTL_MS);
     await Promise.all([
       SecureStore.setItemAsync(SECURE_KEYS.accessToken, data.token),
       SecureStore.setItemAsync(SECURE_KEYS.refreshToken, data.refreshToken),
       SecureStore.setItemAsync(SECURE_KEYS.user, JSON.stringify(user)),
+      SecureStore.setItemAsync(SECURE_KEYS.tokenExpiry, tokenExpiry),
     ]);
     set({
       user,
@@ -76,6 +78,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     } catch {
       // proceed with local logout even if server call fails
     }
+    // Stop background music so it doesn't keep playing after logout
+    try {
+      const { soundManager } = require('../utils/soundManager');
+      await soundManager.stopBackgroundMusic();
+    } catch {
+      // non-fatal
+    }
     await get().clearAuth();
   },
 
@@ -90,9 +99,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   clearAuth: async () => {
     await Promise.all([
-      SecureStore.deleteItemAsync(SECURE_KEYS.accessToken),
-      SecureStore.deleteItemAsync(SECURE_KEYS.refreshToken),
-      SecureStore.deleteItemAsync(SECURE_KEYS.user),
+      SecureStore.deleteItemAsync(SECURE_KEYS.accessToken).catch(() => {}),
+      SecureStore.deleteItemAsync(SECURE_KEYS.refreshToken).catch(() => {}),
+      SecureStore.deleteItemAsync(SECURE_KEYS.user).catch(() => {}),
+      SecureStore.deleteItemAsync(SECURE_KEYS.tokenExpiry).catch(() => {}),
     ]);
     set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
   },
