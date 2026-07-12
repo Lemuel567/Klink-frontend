@@ -62,7 +62,7 @@ export default function VerifyScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={Gradients.darkWorship} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.inner}>

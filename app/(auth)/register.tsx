@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { authApi } from '../../src/api/auth';
+import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
+import { ScreenPhotos } from '../../src/utils/worshipImages';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
@@ -24,7 +26,9 @@ import { BorderRadius, Spacing } from '../../src/theme/spacing';
 type Mode = 'join' | 'create';
 
 export default function RegisterScreen() {
-  const [mode, setMode] = useState<Mode>('join');
+  // ?mode=create preselects church registration (linked from the login screen)
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<Mode>(params.mode === 'create' ? 'create' : 'join');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -120,8 +124,7 @@ export default function RegisterScreen() {
   }, [mode, fullName, email, phone, password, confirmPassword, churchCode, churchName, location, denomination, loading]);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={Gradients.darkWorship} style={StyleSheet.absoluteFill} />
+    <WatermarkBackground imageSource={ScreenPhotos.register} overlayOpacity={0.64} style={styles.container}>
       <LightBeam opacity={0.08} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -225,7 +228,7 @@ export default function RegisterScreen() {
           </ScrollReveal>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </WatermarkBackground>
   );
 }
 

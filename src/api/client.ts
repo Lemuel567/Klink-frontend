@@ -30,7 +30,9 @@ function friendlyNetworkMessage(error: AxiosError): string {
     const code = error.code ?? '';
     if (code === 'ECONNABORTED') return 'Request timed out. Please try again.';
     if (code === 'ERR_NETWORK' || code === 'NETWORK_ERROR')
-      return 'No internet connection. Please check your network.';
+      // Device may be online while the server/tunnel is unreachable — don't
+      // blame the user's internet.
+      return 'Cannot reach the server. Please try again.';
     return 'Could not reach the server. Please try again.';
   }
 
@@ -77,7 +79,12 @@ async function withRetry(
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: TIMEOUT_MS,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    // localtunnel serves an HTML interstitial to requests without this header;
+    // required in tunnel mode, harmless in wifi/emulator/prod modes.
+    'Bypass-Tunnel-Reminder': 'true',
+  },
 });
 
 // ── Request interceptor ──────────────────────────────────────────────────────
@@ -87,10 +94,16 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
   return config;
 });
 
+// Only declare "offline" after several consecutive network-level failures —
+// a single slow/tunnelled request must not flash the offline banner.
+const OFFLINE_AFTER_FAILURES = 3;
+let consecutiveNetworkFailures = 0;
+
 // ── Response interceptor ─────────────────────────────────────────────────────
 apiClient.interceptors.response.use(
   (response) => {
     // Successful response — we're online
+    consecutiveNetworkFailures = 0;
     getSetOffline()(false);
     return response;
   },
@@ -100,15 +113,28 @@ apiClient.interceptors.response.use(
       _retryCount?: number;
     };
 
-    // Detect offline state
+    // Detect offline state (with grace: 3 strikes before the banner shows)
     if (!error.response) {
-      getSetOffline()(true);
+      consecutiveNetworkFailures += 1;
+      if (consecutiveNetworkFailures >= OFFLINE_AFTER_FAILURES) {
+        getSetOffline()(true);
+      }
     } else {
+      consecutiveNetworkFailures = 0;
       getSetOffline()(false);
     }
 
     // ── 401 → try token refresh ────────────────────────────────────────────
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // NEVER for public auth endpoints: a 401 from /auth/login means "wrong
+    // credentials", not "expired session" — running the refresh dance there
+    // masked every login error as "Session expired. Please log in again."
+    const reqUrl = originalRequest.url ?? '';
+    const isPublicAuthCall = [
+      '/auth/login', '/auth/register', '/auth/refresh', '/auth/verify',
+      '/auth/resend', '/auth/forgot-password', '/auth/reset-password',
+    ].some((p) => reqUrl.includes(p));
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicAuthCall) {
       if (isRefreshing) {
         return new Promise((resolve) => {
           addRefreshSubscriber((newToken) => {

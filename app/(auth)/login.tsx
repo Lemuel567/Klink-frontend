@@ -17,6 +17,8 @@ import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { FloatingElement } from '../../src/components/animations/FloatingElement';
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
+import { Congregation } from '../../src/components/worship';
+import { RotatingBackground } from '../../src/components/common/RotatingBackground';
 import { authApi } from '../../src/api/auth';
 import { useAuthStore } from '../../src/store/authStore';
 import { useHaptics } from '../../src/hooks/useHaptics';
@@ -24,7 +26,7 @@ import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type LoginMethod = 'email' | 'phone';
 
@@ -76,10 +78,16 @@ export default function LoginScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      {/* Background */}
-      <LinearGradient colors={Gradients.darkWorship} style={StyleSheet.absoluteFill} />
+    <RotatingBackground
+      overlayColors={['rgba(10,5,32,0.35)', 'rgba(10,5,32,0.65)', 'rgba(10,5,32,0.9)'] as const}
+      style={styles.container}
+    >
       <LightBeam opacity={0.1} />
+
+      {/* Worship congregation silhouette anchored at the base, behind the card */}
+      <View style={styles.congregation} pointerEvents="none">
+        <Congregation width={width} height={width * 0.55} />
+      </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -176,7 +184,9 @@ export default function LoginScreen() {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <TouchableOpacity
-                onPress={() => router.push('/(auth)/onboarding')}
+                // Cast: expo-router's typed-route cache (.expo/types) regenerates to
+                // include this newly-added screen on the next `expo start`.
+                onPress={() => router.push('/(auth)/forgot-password' as any)}
                 style={styles.forgotBtn}
                 accessibilityRole="link"
               >
@@ -186,7 +196,7 @@ export default function LoginScreen() {
               <KlinkButton label="Sign in" onPress={handleLogin} loading={loading} />
 
               <View style={styles.registerRow}>
-                <Text style={styles.registerPrompt}>New to Klink? </Text>
+                <Text style={styles.registerPrompt}>New member? </Text>
                 <TouchableOpacity
                   onPress={() => router.push('/(auth)/register')}
                   accessibilityRole="link"
@@ -195,18 +205,30 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
+              {/* Pastors get their own prominent entry point — church creation was
+                  previously hidden behind a toggle inside the register screen */}
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/(auth)/register', params: { mode: 'create' } })}
+                style={styles.registerChurchBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Register your church"
+              >
+                <Text style={styles.registerChurchText}>⛪ Pastor? Register your church</Text>
+              </TouchableOpacity>
+
               <Text style={styles.social}>Trusted by churches across Ghana</Text>
             </View>
           </ScrollReveal>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </RotatingBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
+  congregation: { position: 'absolute', left: 0, right: 0, bottom: 0, opacity: 0.9 },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -290,6 +312,17 @@ const styles = StyleSheet.create({
   },
   registerPrompt: { color: Colors.darkMuted, fontSize: FontSize.small },
   registerLink: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
+  registerChurchBtn: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(244,164,41,0.5)',
+    borderRadius: BorderRadius.full,
+    paddingVertical: 12,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
+  },
+  registerChurchText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold },
   social: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: FontSize.caption,

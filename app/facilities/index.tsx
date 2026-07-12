@@ -52,7 +52,6 @@ export default function FacilitiesScreen() {
       ) : (
         <FlashList
           data={facilities}
-          estimatedItemSize={100}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => <FacilityCard facility={item} index={index} theme={theme} />}
           onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}

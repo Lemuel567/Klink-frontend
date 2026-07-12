@@ -70,14 +70,21 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       refreshToken: data.refreshToken,
       isAuthenticated: true,
     });
+    // Restart worship music for the new session (logout stops it)
+    try {
+      const { soundManager } = require('../utils/soundManager');
+      if (soundManager.isMusicEnabled()) {
+        soundManager.playBackgroundMusic().catch(() => {});
+      }
+    } catch {
+      // non-fatal
+    }
   },
 
   logout: async () => {
-    try {
-      await authApi.logout();
-    } catch {
-      // proceed with local logout even if server call fails
-    }
+    // Fire-and-forget server revoke — NEVER block sign-out on the network.
+    // (Awaiting this made "Sign out" feel dead for seconds on slow tunnels.)
+    authApi.logout().catch(() => {});
     // Stop background music so it doesn't keep playing after logout
     try {
       const { soundManager } = require('../utils/soundManager');

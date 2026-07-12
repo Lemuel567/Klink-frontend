@@ -1,22 +1,40 @@
+import Constants from 'expo-constants';
+
 // ─── ENVIRONMENT SWITCH ───────────────────────────────────────────────────────
 // Change this ONE line to switch environments:
-//   'emulator' → Android emulator (10.0.2.2)
+//   'tunnel'   → Expo tunnel + localtunnel backend (works on ANY network / LTE)
 //   'wifi'     → iPhone / real device on same WiFi as laptop
+//   'emulator' → Android emulator (10.0.2.2)
 //   'staging'  → staging server
 //   'prod'     → production server
-const ENV: 'emulator' | 'wifi' | 'staging' | 'prod' = 'wifi';
+const ENV: 'emulator' | 'wifi' | 'tunnel' | 'staging' | 'prod' = 'tunnel';
 
-// ─── YOUR LAPTOP'S WIFI IP ───────────────────────────────────────────────────
-// Run `ipconfig` (Windows) or `ifconfig` (Mac) and paste your IPv4 address here
+// ─── YOUR LAPTOP'S WIFI IP (wifi mode only) ──────────────────────────────────
+// Run `ipconfig` (Windows) and paste the "Wireless LAN adapter Wi-Fi" IPv4 here
 const LAPTOP_WIFI_IP = '172.20.10.3';
+
+// ─── BACKEND TUNNEL URL (tunnel mode only) ───────────────────────────────────
+// Started with: npm run tunnel:backend (cloudflared). The trycloudflare URL is
+// RANDOM per run — paste the new one here each session (keep the /api/v1 suffix).
+const TUNNEL_API_URL = 'https://shaped-nodes-any-dave.trycloudflare.com/api/v1';
 
 // ─── BASE URL LOGIC ──────────────────────────────────────────────────────────
 function getBaseUrl(): string {
   switch (ENV) {
+    case 'tunnel':
+      return TUNNEL_API_URL;
     case 'emulator':
       return 'http://10.0.2.2:8080/api/v1';
-    case 'wifi':
+    case 'wifi': {
+      // Auto-derive the laptop IP from the Metro host the app was loaded from —
+      // survives IP changes without editing this file. Falls back to the constant.
+      const hostUri = Constants.expoConfig?.hostUri;
+      const host = hostUri?.split(':')[0];
+      if (host && /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+        return `http://${host}:8080/api/v1`;
+      }
       return `http://${LAPTOP_WIFI_IP}:8080/api/v1`;
+    }
     case 'staging':
       return 'https://staging.klink.app/api/v1';
     case 'prod':
@@ -27,7 +45,9 @@ function getBaseUrl(): string {
 export const API_BASE_URL = getBaseUrl();
 
 // ─── HTTP CLIENT ─────────────────────────────────────────────────────────────
-export const TIMEOUT_MS = 30_000;
+// 60s: tunnel round-trips + first-request cold paths are slow; 30s caused
+// false "offline" errors on iPhone over Cloudflare tunnels.
+export const TIMEOUT_MS = 60_000;
 export const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 

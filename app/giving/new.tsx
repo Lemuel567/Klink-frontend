@@ -65,7 +65,9 @@ export default function NewGivingScreen() {
     enabled: showPicker && debouncedSearch.length >= 2,
   });
 
-  const { mutate: submit, isPending } = useMutation({
+  // Result generic is widened to `unknown` because welfare returns Payment[]
+  // while offering/tithe return a single Payment; the result is not consumed.
+  const { mutate: submit, isPending } = useMutation<unknown, unknown, void>({
     mutationFn: () => {
       const parsedAmount = parseFloat(amount);
       if (type === 'OFFERING') {
@@ -140,7 +142,7 @@ export default function NewGivingScreen() {
   if (role !== 'FINANCIAL_SECRETARY') {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={Gradients.darkWorship} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
         <View style={[styles.infoWrap, { paddingTop: insets.top + 32 }]}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -153,9 +155,13 @@ export default function NewGivingScreen() {
           <Text style={styles.infoIcon}>🙏</Text>
           <Text style={styles.infoHeading}>Your giving matters</Text>
           <Text style={styles.infoBody}>
-            Payments are recorded by your church's Financial Secretary. Speak to them to record your
-            tithe, offering, or welfare contribution.
+            Give your tithe, offering, or welfare contribution securely with mobile money or card —
+            or speak to your Financial Secretary to record a cash payment.
           </Text>
+          <KlinkButton
+            label="Give Online with Paystack"
+            onPress={() => router.replace('/giving/pay')}
+          />
           <TouchableOpacity
             style={styles.historyBtn}
             onPress={() => router.push('/giving/history')}
@@ -173,7 +179,7 @@ export default function NewGivingScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={Gradients.darkWorship} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView

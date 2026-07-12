@@ -8,12 +8,23 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { WorshipHero } from '../../src/components/church/WorshipHero';
+import { ChurchBuilding } from '../../src/components/worship';
+import { CountUp } from '../../src/components/common/CountUp';
 import { ScriptureReveal } from '../../src/components/church/ScriptureReveal';
 import { TitheThermometer } from '../../src/components/church/TitheThermometer';
 import { AnnouncementCard } from '../../src/components/screens/AnnouncementCard';
@@ -31,6 +42,10 @@ import { announcementsApi, Announcement } from '../../src/api/announcements';
 import { sermonsApi, Sermon } from '../../src/api/sermons';
 import { eventsApi, ChurchEvent } from '../../src/api/events';
 import { projectsApi, Project } from '../../src/api/projects';
+import { givingApi } from '../../src/api/giving';
+import { devotionalsApi } from '../../src/api/devotionals';
+import { attendanceApi } from '../../src/api/attendance';
+import { formatCurrency } from '../../src/utils/formatters';
 import { useParallax } from '../../src/hooks/useParallax';
 import { useAuthStore, useUser, useRole } from '../../src/store/authStore';
 import { Colors, Gradients } from '../../src/theme/colors';
@@ -71,16 +86,40 @@ export default function HomeScreen() {
   const { data: projects, isLoading: loadingProjects, refetch: refetchProjects } =
     useQuery({ queryKey: ['projects'], queryFn: () => projectsApi.list({ size: 4, status: 'FUNDRAISING' }) });
 
+  // Member's own giving — real data from /finances/me (church-wide totals are not
+  // exposed to every role, so the card reflects the signed-in member's giving).
+  const { data: myPayments, refetch: refetchGiving } =
+    useQuery({ queryKey: ['myPayments'], queryFn: () => givingApi.getMyPayments({ size: 100 }) });
+  const myGivingTotal = myPayments?.content?.reduce((s: number, p: { amount: number }) => s + p.amount, 0) ?? 0;
+
+  // Latest devotional drives the verse widget; static verse is the fallback
+  const { data: devotionals, refetch: refetchDevotionals } =
+    useQuery({ queryKey: ['devotionals-latest'], queryFn: () => devotionalsApi.getAll({ size: 1 }) });
+  const latestDevotional = devotionals?.content?.[0];
+  const verse = latestDevotional
+    ? { verse: latestDevotional.content, reference: latestDevotional.title }
+    : DAILY_VERSE;
+
+  // Member's own attendance — count of services marked PRESENT
+  const { data: myAttendance, refetch: refetchAttendance } =
+    useQuery({ queryKey: ['attendance-me-summary'], queryFn: () => attendanceApi.getMe({ size: 100 }) });
+  const presentCount =
+    myAttendance?.content?.filter((r: { status: string }) => r.status === 'PRESENT').length ?? 0;
+
   const isRefreshing = refetchingAnn;
   const handleRefresh = useCallback(() => {
     refetchAnn();
     refetchSermons();
     refetchEvents();
     refetchProjects();
+    refetchGiving();
+    refetchDevotionals();
+    refetchAttendance();
   }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Screen veil only — the root RotatingBackground photo shows through */}
       {/* Sticky header that morphs transparent → purple */}
       <Animated.View
         style={[
@@ -107,6 +146,8 @@ export default function HomeScreen() {
           bgStyle={bgStyle}
           midStyle={midStyle}
           height={HERO_HEIGHT}
+          rotating
+          illustration={<ChurchBuilding width={220} height={180} />}
         >
           <View style={{ paddingTop: insets.top + 16 }} />
         </WorshipHero>
@@ -114,18 +155,27 @@ export default function HomeScreen() {
         {/* Daily verse */}
         <ScrollReveal delay={0}>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.sectionLabel, { color: Colors.gold }]}>TODAY'S VERSE</Text>
-            <ScriptureReveal verse={DAILY_VERSE.verse} reference={DAILY_VERSE.reference} />
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: Colors.gold, marginBottom: 0 }]}>TODAY'S VERSE</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/devotional')}
+                accessibilityRole="button"
+                accessibilityLabel="View daily devotionals"
+              >
+                <Text style={styles.seeAll}>Devotionals ›</Text>
+              </TouchableOpacity>
+            </View>
+            <ScriptureReveal verse={verse.verse} reference={verse.reference} />
           </View>
         </ScrollReveal>
 
         {/* Bento grid stats */}
         <ScrollReveal delay={100}>
           <View style={styles.bentoGrid}>
-            <StatCard label="This Sunday" value="–" sub="attendance" color={Colors.blue} delay={0} />
-            <StatCard label="Monthly giving" value="–" sub="total collected" color={Colors.green} delay={80} />
-            <StatCard label="Upcoming" value={String(events?.content?.length ?? 0)} sub="events" color={Colors.gold} delay={160} />
-            <StatCard label="Active projects" value={String(projects?.content?.length ?? 0)} sub="fundraising" color={Colors.roseGold} delay={240} />
+            <StatCard label="My attendance" count={presentCount} sub="services present" color={Colors.blue} delay={0} />
+            <StatCard label="Your giving" value={formatCurrency(myGivingTotal)} sub="recorded total" color={Colors.green} delay={80} />
+            <StatCard label="Upcoming" count={events?.content?.length ?? 0} sub="events" color={Colors.gold} delay={160} />
+            <StatCard label="Active projects" count={projects?.content?.length ?? 0} sub="fundraising" color={Colors.roseGold} delay={240} />
           </View>
         </ScrollReveal>
 
@@ -196,7 +246,7 @@ export default function HomeScreen() {
 
         {/* Recent sermons */}
         <View style={[styles.section, { paddingBottom: 100 }]}>
-          <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/(tabs)/sermons')} />
+          <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/sermons')} />
           {loadingSermons
             ? Array.from({ length: 2 }, (_, i) => <SermonCardSkeleton key={i} />)
             : (sermons?.content?.length ?? 0) > 0
@@ -209,7 +259,7 @@ export default function HomeScreen() {
                 title="No sermons recorded"
                 subtitle="Sermons and messages from your pastor will appear here"
                 actionLabel={canManageContent ? 'Add sermon' : undefined}
-                onAction={canManageContent ? () => router.push('/(tabs)/sermons') : undefined}
+                onAction={canManageContent ? () => router.push('/sermons') : undefined}
               />
             )}
         </View>
@@ -238,12 +288,15 @@ function SectionHeader({ label, onSeeAll }: { label: string; onSeeAll?: () => vo
 function StatCard({
   label,
   value,
+  count,
   sub,
   color,
   delay,
 }: {
   label: string;
-  value: string;
+  value?: string;
+  /** When provided, the value animates up from 0 to this number. */
+  count?: number;
   sub: string;
   color: string;
   delay: number;
@@ -252,7 +305,11 @@ function StatCard({
   return (
     <ScrollReveal delay={delay} style={styles.statCard}>
       <View style={[styles.statAccent, { backgroundColor: `${color}25` }]}>
-        <Text style={[styles.statValue, { color }]}>{value}</Text>
+        {count !== undefined ? (
+          <CountUp value={count} style={[styles.statValue, { color }]} />
+        ) : (
+          <Text style={[styles.statValue, { color }]}>{value}</Text>
+        )}
       </View>
       <Text style={[styles.statLabel, { color: theme.text }]}>{label}</Text>
       <Text style={[styles.statSub, { color: theme.textMuted }]}>{sub}</Text>
@@ -260,26 +317,110 @@ function StatCard({
   );
 }
 
-function QuickActions({ insets }: { insets: any }) {
+// ─── Premium 3D quick actions ────────────────────────────────────────────────
+// 72×72 gradient tiles with SVG icons, floating idle bob (staggered wave),
+// spring press-scale, gradient-matched shadows, and medium haptics.
+
+const QUICK_ACTIONS: {
+  label: string;
+  gradient: readonly [string, string];
+  icon: string; // 24×24 SVG path, stroke style
+  route: string;
+}[] = [
+  {
+    label: 'Check In',
+    gradient: ['#2D1B69', '#6B3FA0'],
+    icon: 'M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+    route: '/attendance',
+  },
+  {
+    label: 'Give',
+    gradient: ['#854F0B', '#F4A429'],
+    icon: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z',
+    route: '/(tabs)/giving',
+  },
+  {
+    label: 'Prayer',
+    gradient: ['#0C447C', '#4A90D9'],
+    icon: 'M12 3v18 M7 8h10',
+    route: '/prayer',
+  },
+  {
+    label: 'Contact',
+    gradient: ['#085041', '#1D9E75'],
+    icon: 'M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.4-.7L3 21l1.8-5.6A8.38 8.38 0 0 1 3.6 11.5a8.5 8.5 0 0 1 8.4-8.4 8.38 8.38 0 0 1 9 8.4z',
+    route: '/church/settings',
+  },
+];
+
+function QuickActionButton({
+  action,
+  index,
+}: {
+  action: (typeof QUICK_ACTIONS)[number];
+  index: number;
+}) {
   const haptics = useHaptics();
-  const actions = [
-    { label: 'Check In', color: Colors.blue, onPress: () => {} },
-    { label: 'Give', color: Colors.gold, onPress: () => router.push('/(tabs)/giving') },
-    { label: 'Prayer', color: Colors.roseGold, onPress: () => {} },
-    { label: 'Contact', color: Colors.purple, onPress: () => {} },
-  ];
+  const scale = useSharedValue(1);
+  const bob = useSharedValue(0);
+
+  // Idle floating bob — each button offset by 300ms creating a gentle wave
+  React.useEffect(() => {
+    bob.value = withDelay(
+      index * 300,
+      withRepeat(
+        withTiming(-3, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bob.value }, { scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPressIn={() => { scale.value = withTiming(0.92, { duration: 90 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 8, stiffness: 200 }); }}
+        onPress={() => { haptics.medium(); router.push(action.route as any); }}
+        accessibilityRole="button"
+        accessibilityLabel={action.label}
+        style={[styles.qaShadow, { shadowColor: action.gradient[0] }]}
+      >
+        <LinearGradient
+          colors={action.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.qaTile}
+        >
+          <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+            <Path
+              d={action.icon}
+              stroke={Colors.white}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={styles.qaLabel} numberOfLines={1}>
+            {action.label}
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function QuickActions({ insets }: { insets: any }) {
   return (
     <View style={[styles.fabRow, { paddingBottom: insets.bottom + 80 }]}>
-      {actions.map((a) => (
-        <TouchableOpacity
-          key={a.label}
-          onPress={() => { haptics.medium(); a.onPress(); }}
-          style={[styles.fab, { backgroundColor: a.color }]}
-          accessibilityRole="button"
-          accessibilityLabel={a.label}
-        >
-          <Text style={styles.fabLabel}>{a.label}</Text>
-        </TouchableOpacity>
+      {QUICK_ACTIONS.map((a, i) => (
+        <QuickActionButton key={a.label} action={a} index={i} />
       ))}
     </View>
   );
@@ -359,21 +500,32 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-  },
-  fab: {
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.full,
-    minHeight: 44,
-    justifyContent: 'center',
   },
-  fabLabel: {
+  // Floating 3D shadow — colour is set per-button to match its gradient
+  qaShadow: {
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+    borderRadius: 20,
+  },
+  qaTile: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  qaLabel: {
     color: Colors.white,
-    fontSize: FontSize.caption,
+    fontSize: 11,
     fontWeight: FontWeight.semiBold,
-    letterSpacing: LetterSpacing.wide,
+    letterSpacing: 0.2,
   },
 });

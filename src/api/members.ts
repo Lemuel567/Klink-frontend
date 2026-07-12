@@ -1,14 +1,16 @@
 import { apiClient } from './client';
 import { MemberSummary } from './auth';
 
+// Regular members receive the DIRECTORY view: id, fullName, phone, photoUrl
+// only — every other field is null/absent (backend privacy rule, 2026-07-12).
 export interface Member extends MemberSummary {
   phone?: string;
   dateOfBirth?: string;
-  status: 'ACTIVE' | 'DEACTIVATED';
-  qrCodeValue: string;
-  category: string;
-  createdAt: string;
-  updatedAt: string;
+  status?: 'ACTIVE' | 'DEACTIVATED';
+  qrCodeValue?: string;
+  category?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MemberPage {

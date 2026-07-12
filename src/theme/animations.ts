@@ -1,4 +1,6 @@
-import { Easing } from 'react-native';
+// MUST come from reanimated, not react-native — Reanimated 4 requires worklet
+// easings; passing RN's Easing throws "The easing function is not a worklet".
+import { Easing } from 'react-native-reanimated';
 
 export const SpringConfig = {
   // Standard spring for most interactions

@@ -29,6 +29,14 @@ foreach ($rule in $rules) {
 }
 
 Write-Host "`nDone! All Expo firewall rules are in place." -ForegroundColor Green
-Write-Host "Your laptop IP: " -NoNewline
-(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^127\.' -and $_.IPAddress -notmatch '^169\.' } | Select-Object -First 1).IPAddress
-Write-Host "Restart Expo with: npx expo start" -ForegroundColor Cyan
+# Prefer the real Wi-Fi adapter — this laptop also has a VirtualBox adapter (192.168.56.x)
+# that the iPhone can never reach.
+$wifiIp = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias 'Wi-Fi' -ErrorAction SilentlyContinue).IPAddress
+if (-not $wifiIp) {
+    $wifiIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+        $_.IPAddress -notmatch '^127\.' -and $_.IPAddress -notmatch '^169\.' -and $_.IPAddress -notmatch '^192\.168\.56\.'
+    } | Select-Object -First 1).IPAddress
+}
+Write-Host "Your laptop Wi-Fi IP: $wifiIp"
+Write-Host "If this differs from LAPTOP_WIFI_IP in src/utils/constants.ts AND the start script in package.json, update both." -ForegroundColor Yellow
+Write-Host "Restart Expo with: npm start   (NOT 'npx expo start' — npm start pins the correct IP)" -ForegroundColor Cyan

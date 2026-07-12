@@ -1,13 +1,13 @@
-import { useColorScheme } from 'react-native';
-import { DarkTheme, LightTheme } from '../theme/colors';
-import { useThemeStore } from '../store/themeStore';
+import { DarkTheme } from '../theme/colors';
 
-// Use a mapped type so light and dark theme values are both valid (no literal type mismatch)
-export type Theme = { [K in keyof typeof DarkTheme]: string };
+// Klink is DARK-MODE ONLY (2026-07-12): the full-bleed rotating worship photos
+// with translucent glass surfaces are the app's visual identity (the login-page
+// look, applied everywhere). Light mode was removed deliberately — do not
+// reintroduce useColorScheme/themeStore switching here.
+export type Theme = Omit<{ [K in keyof typeof DarkTheme]: string }, 'backgroundGradient'> & {
+  backgroundGradient: readonly [string, string, string];
+};
 
 export function useTheme(): { theme: Theme; isDark: boolean } {
-  const systemScheme = useColorScheme();
-  const preference = useThemeStore((s) => s.preference);
-  const isDark = preference === 'system' ? systemScheme === 'dark' : preference === 'dark';
-  return { theme: (isDark ? DarkTheme : LightTheme) as Theme, isDark };
+  return { theme: DarkTheme as Theme, isDark: true };
 }

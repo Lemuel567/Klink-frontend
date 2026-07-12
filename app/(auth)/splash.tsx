@@ -14,6 +14,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { FloatingElement } from '../../src/components/animations/FloatingElement';
+import { CrossWithRays } from '../../src/components/worship';
+import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
+import { ScreenPhotos } from '../../src/utils/worshipImages';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { Duration, EasingPresets, SpringConfig } from '../../src/theme/animations';
@@ -113,16 +116,12 @@ export default function SplashScreen() {
   }));
 
   return (
-    <View style={styles.container}>
-      {/* Gradient background */}
-      <LinearGradient
-        colors={Gradients.darkWorship}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Purple aurora layer */}
+    <WatermarkBackground
+      imageSource={ScreenPhotos.splash}
+      overlayOpacity={0.5}
+      style={styles.container}
+    >
+      {/* Purple aurora layer over the worship photo */}
       <View style={[StyleSheet.absoluteFill, styles.aurora]} />
 
       {/* Light beams from top */}
@@ -135,6 +134,11 @@ export default function SplashScreen() {
 
       {/* Center logo area */}
       <View style={styles.center}>
+        {/* Cross with light rays, fading in with the glow, behind the logo */}
+        <Animated.View style={[styles.crossArt, glowStyle]} pointerEvents="none">
+          <CrossWithRays width={300} height={300} />
+        </Animated.View>
+
         {/* Gold glow behind logo */}
         <Animated.View style={[styles.glow, glowStyle]} />
 
@@ -162,7 +166,7 @@ export default function SplashScreen() {
           Your Church, Connected
         </Animated.Text>
       </View>
-    </View>
+    </WatermarkBackground>
   );
 }
 
@@ -250,6 +254,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
+  },
+  crossArt: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   glow: {
     position: 'absolute',

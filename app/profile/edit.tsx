@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActionSheetIOS,
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -8,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -100,6 +105,77 @@ export default function EditProfileScreen() {
     save();
   };
 
+  // ── Profile photo picking + upload ──────────────────────────────────────
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const uploadPhoto = async (uri: string) => {
+    try {
+      setUploadingPhoto(true);
+      const name = uri.split('/').pop() ?? 'photo.jpg';
+      const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const url = await membersApi.uploadPhoto(user!.id, {
+        uri,
+        name,
+        type: ext === 'png' ? 'image/png' : 'image/jpeg',
+      });
+      updateUser({ photoUrl: url });
+      queryClient.invalidateQueries({ queryKey: ['member', user?.id] });
+      haptics.success();
+      showToast('Profile photo updated', 'success');
+    } catch (err: any) {
+      haptics.heavy();
+      showToast(err?.friendlyMessage ?? 'Could not upload the photo', 'error');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const pickImage = async (source: 'camera' | 'library') => {
+    const permission =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow access in Settings to change your photo.');
+      return;
+    }
+    const options: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    };
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      uploadPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handlePhotoPress = () => {
+    haptics.light();
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) pickImage('camera');
+          if (buttonIndex === 2) pickImage('library');
+        },
+      );
+    } else {
+      Alert.alert('Profile photo', 'Choose a source', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Take photo', onPress: () => pickImage('camera') },
+        { text: 'Choose from library', onPress: () => pickImage('library') },
+      ]);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* ── Header ── */}
@@ -144,16 +220,41 @@ export default function EditProfileScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ── Avatar ── */}
+          {/* ── Avatar — tap to change photo ── */}
           <ScrollReveal delay={0}>
             <View style={styles.avatarWrap}>
-              <KlinkAvatar
-                name={fullName || user?.fullName || ''}
-                photoUrl={user?.photoUrl}
-                size={88}
-              />
+              <TouchableOpacity
+                onPress={handlePhotoPress}
+                disabled={uploadingPhoto}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile photo"
+                style={styles.avatarTouch}
+              >
+                <KlinkAvatar
+                  name={fullName || user?.fullName || ''}
+                  photoUrl={user?.photoUrl}
+                  size={100}
+                />
+                {/* Camera badge — always visible over the photo */}
+                <View style={styles.cameraBadge}>
+                  {uploadingPhoto ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+                        stroke={Colors.white}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Circle cx={12} cy={13} r={4} stroke={Colors.white} strokeWidth={2} />
+                    </Svg>
+                  )}
+                </View>
+              </TouchableOpacity>
               <Text style={[styles.avatarHint, { color: theme.textMuted }]}>
-                Photo upload coming soon
+                {uploadingPhoto ? 'Uploading…' : 'Tap to change photo'}
               </Text>
             </View>
           </ScrollReveal>
@@ -314,6 +415,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     paddingBottom: Spacing.sm,
+  },
+  avatarTouch: { position: 'relative' },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#0A0520',
   },
   avatarHint: {
     fontSize: FontSize.caption,

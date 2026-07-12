@@ -1,7 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { KlinkCard } from '../common/KlinkCard';
 import { ScrollReveal } from '../animations/ScrollReveal';
+import { getWorshipPhoto } from '../../utils/worshipImages';
 import { Announcement, targetTypeLabel, targetTypeColor } from '../../api/announcements';
 import { Colors } from '../../theme/colors';
 import { FontSize, FontWeight } from '../../theme/typography';
@@ -26,6 +29,21 @@ export function AnnouncementCard({ announcement, index = 0, onPress }: Props) {
   return (
     <ScrollReveal delay={index * StaggerDelay.list}>
       <KlinkCard onPress={onPress} style={styles.card}>
+        {/* Alternating worship photo — subtle right-edge accent, faded into the card */}
+        <ExpoImage
+          source={getWorshipPhoto(index)}
+          style={styles.photoAccent}
+          contentFit="cover"
+          transition={300}
+          cachePolicy="memory-disk"
+        />
+        <LinearGradient
+          colors={[theme.card, `${theme.card}CC`, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.photoMask}
+          pointerEvents="none"
+        />
         <View style={[styles.accent, { backgroundColor: isTargeted ? badgeColor : Colors.gold }]} />
         <View style={styles.body}>
           <View style={styles.titleRow}>
@@ -70,6 +88,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
   },
+  photoAccent: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '55%',
+    opacity: 0.22,
+  },
+  photoMask: { ...StyleSheet.absoluteFillObject },
   body: { flex: 1, padding: Spacing.md, gap: 4 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   title: { fontSize: FontSize.body, fontWeight: FontWeight.semiBold },

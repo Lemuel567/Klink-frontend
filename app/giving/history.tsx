@@ -50,7 +50,6 @@ export default function GivingHistoryScreen() {
       ) : (
         <FlashList
           data={payments}
-          estimatedItemSize={72}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => <PaymentItem payment={item} index={index} theme={theme} />}
           onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}

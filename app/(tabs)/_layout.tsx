@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
+import { useAuthStore } from '../../src/store/authStore';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,37 +17,65 @@ import { FontSize, FontWeight } from '../../src/theme/typography';
 import { SpringConfig, Duration } from '../../src/theme/animations';
 import { useTheme } from '../../src/hooks/useTheme';
 
-const TABS = [
-  { name: 'home', label: 'Home', icon: '⌂' },
-  { name: 'members', label: 'Members', icon: '👥' },
-  { name: 'giving', label: 'Give', icon: '♥' },
-  { name: 'sermons', label: 'Sermons', icon: '✦' },
-  { name: 'profile', label: 'Profile', icon: '◎' },
-] as const;
+// Icon + label per tab route. Every tab is wired to a live backend screen —
+// the old sermons "✦" tab moved into the Church hub.
+const TAB_META: Record<string, { label: string; icon: string }> = {
+  home: { label: 'Home', icon: '⌂' },
+  members: { label: 'Members', icon: '👥' },
+  giving: { label: 'Give', icon: '♥' },
+  church: { label: 'Church', icon: '⛪' },
+  profile: { label: 'Profile', icon: '◎' },
+};
+
+// 2026-07-12: the directory is open to everyone — the backend returns full
+// records to leaders and a limited view (name + phone only) to members.
 
 export default function TabLayout() {
+  // Auth guard: nothing behind the tabs renders without a valid session.
+  // Covers deep links, expired sessions, and any stray navigation into (tabs).
+  const { isAuthenticated, isInitialized, user } = useAuthStore();
+  if (isInitialized === false) return null; // still restoring tokens from SecureStore
+  if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
+
+  const showMembersTab = true;
+
   return (
     <Tabs
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        // Transparent scenes — the root RotatingBackground shows through
+        sceneStyle: { backgroundColor: 'transparent' },
+      }}
       tabBar={(props) => <KlinkTabBar {...props} />}
     >
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="members" options={{ title: 'Members' }} />
+      <Tabs.Screen name="members" options={{ title: 'Members', href: showMembersTab ? undefined : null }} />
       <Tabs.Screen name="giving" options={{ title: 'Give' }} />
-      <Tabs.Screen name="sermons" options={{ title: 'Sermons' }} />
+      <Tabs.Screen name="church" options={{ title: 'Church' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );
 }
 
-function KlinkTabBar({ state, navigation }: any) {
+function KlinkTabBar({ state, descriptors, navigation }: any) {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const activeIndex = state.index;
+
+  // Only routes actually shown in the bar (href: null hides e.g. Members for
+  // regular members); the pill index is relative to this visible list.
+  const visibleRoutes = state.routes.filter(
+    (r: any) => descriptors[r.key]?.options?.href !== null,
+  );
+  const activeKey = state.routes[state.index]?.key;
+  const activeIndex = Math.max(0, visibleRoutes.findIndex((r: any) => r.key === activeKey));
 
   // Sliding pill indicator
   const pillX = useSharedValue(activeIndex);
-  const TAB_WIDTH = 100 / TABS.length;
+  const TAB_WIDTH = 100 / Math.max(1, visibleRoutes.length);
+
+  React.useEffect(() => {
+    pillX.value = withSpring(activeIndex, SpringConfig.tab);
+  }, [activeIndex]);
 
   const pillStyle = useAnimatedStyle(() => ({
     left: `${pillX.value * TAB_WIDTH}%`,
@@ -61,26 +90,29 @@ function KlinkTabBar({ state, navigation }: any) {
       {/* Sliding indicator */}
       <Animated.View style={[styles.pill, pillStyle]} />
 
-      {TABS.map((tab, index) => (
-        <TabItem
-          key={tab.name}
-          tab={tab}
-          isActive={activeIndex === index}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            pillX.value = withSpring(index, SpringConfig.tab);
-            if (activeIndex !== index) {
-              const event = navigation.emit({ type: 'tabPress', target: state.routes[index].key, canPreventDefault: true });
-              if (!event.defaultPrevented) navigation.navigate(state.routes[index].name);
-            }
-          }}
-        />
-      ))}
+      {visibleRoutes.map((route: any, index: number) => {
+        const meta = TAB_META[route.name] ?? { label: route.name, icon: '•' };
+        return (
+          <TabItem
+            key={route.key}
+            tab={{ name: route.name, ...meta }}
+            isActive={route.key === activeKey}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              pillX.value = withSpring(index, SpringConfig.tab);
+              if (route.key !== activeKey) {
+                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!event.defaultPrevented) navigation.navigate(route.name);
+              }
+            }}
+          />
+        );
+      })}
     </View>
   );
 }
 
-function TabItem({ tab, isActive, onPress }: { tab: typeof TABS[number]; isActive: boolean; onPress: () => void }) {
+function TabItem({ tab, isActive, onPress }: { tab: { name: string; label: string; icon: string }; isActive: boolean; onPress: () => void }) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(isActive ? 1 : 0.5);
 
@@ -124,7 +156,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   glassOverlay: {
-    backgroundColor: 'rgba(10,15,46,0.85)',
+    // Translucent — the worship photo glows through the blurred tab bar
+    backgroundColor: 'rgba(10,5,32,0.55)',
   },
   pill: {
     position: 'absolute',

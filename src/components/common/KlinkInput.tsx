@@ -37,15 +37,31 @@ export function KlinkInput({
   value,
   onFocus,
   onBlur,
+  placeholder,
+  style,
+  multiline,
+  numberOfLines,
   ...rest
 }: Props) {
   const { theme, isDark } = useTheme();
+  const inputRef = useRef<TextInput>(null);
   const [isFocused, setIsFocused] = useState(false);
   const hasValue = Boolean(value && value.length > 0);
+  // iOS ignores numberOfLines for height — give multiline inputs a real
+  // minHeight so the whole visible box is the actual tappable TextInput.
+  const multilineMinHeight = Math.max(120, (numberOfLines ?? 6) * 24);
 
   // Floating label animation
   const labelTop = useSharedValue(hasValue || isFocused ? 0 : 1);
   const labelScale = useSharedValue(hasValue || isFocused ? 0.75 : 1);
+
+  // Keep the label lifted whenever there is a value — covers text set
+  // programmatically (e.g. forms hydrated from the API), not just focus/blur.
+  React.useEffect(() => {
+    const up = hasValue || isFocused;
+    labelTop.value = withTiming(up ? 0 : 1, { duration: Duration.fast, easing: EasingPresets.smooth });
+    labelScale.value = withTiming(up ? 0.75 : 1, { duration: Duration.fast, easing: EasingPresets.smooth });
+  }, [hasValue, isFocused]);
 
   // Gold underline grows from center
   const underlineScale = useSharedValue(isFocused ? 1 : 0);
@@ -115,9 +131,23 @@ export function KlinkInput({
 
   return (
     <Animated.View style={[styles.container, containerStyle, shakeStyle]}>
-      <View style={[styles.inputWrapper, { borderColor }]}>
-        {/* Floating label */}
+      {/* Tapping ANYWHERE in the box focuses the input — critical for
+          multiline fields on iOS where the TextInput is smaller than the box */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => inputRef.current?.focus()}
+        accessible={false}
+      >
+      <View
+        style={[
+          styles.inputWrapper,
+          multiline && styles.inputWrapperMultiline,
+          { borderColor },
+        ]}
+      >
+        {/* Floating label — pointerEvents none so it NEVER swallows taps */}
         <Animated.Text
+          pointerEvents="none"
           style={[
             styles.label,
             { color: error ? Colors.red : isFocused ? Colors.gold : theme.textMuted },
@@ -129,12 +159,25 @@ export function KlinkInput({
         </Animated.Text>
 
         <TextInput
-          style={[styles.input, { color: theme.text }]}
+          ref={inputRef}
+          style={[
+            styles.input,
+            multiline && { minHeight: multilineMinHeight, textAlignVertical: 'top' as const },
+            { color: theme.text },
+            style, // caller style merges, never clobbers
+          ]}
           placeholderTextColor={theme.textMuted}
+          // Only show the placeholder after the floating label has moved up —
+          // otherwise label and placeholder render on top of each other.
+          placeholder={isFocused || hasValue ? placeholder : undefined}
           value={value}
           onFocus={handleFocus}
           onBlur={handleBlur}
           selectionColor={Colors.gold}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          scrollEnabled={multiline ? true : undefined}
+          editable
           {...rest}
         />
 
@@ -149,6 +192,7 @@ export function KlinkInput({
           </TouchableOpacity>
         )}
       </View>
+      </TouchableOpacity>
 
       {/* Gold underline */}
       <Animated.View style={[styles.underline, underlineStyle]} />
@@ -171,12 +215,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Multiline boxes grow downward — content must start at the top
+  inputWrapperMultiline: {
+    alignItems: 'flex-start',
+  },
   label: {
     position: 'absolute',
     left: Spacing.md,
-    top: 16,
+    // Floated (translateY 0): sits at y=6, clearly above the input text which
+    // starts at paddingTop 22. Resting (translateY 14): y=20, vertically
+    // centred. The old top:16 made the floated label overlap typed text.
+    top: 6,
     fontSize: FontSize.body,
-    transformOrigin: 'left center',
+    transformOrigin: 'left top',
   },
   input: {
     flex: 1,

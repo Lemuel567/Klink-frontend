@@ -27,6 +27,7 @@ import { useNetworkStatus } from '../src/hooks/useNetworkStatus';
 import { MusicIndicator } from '../src/components/common/MusicIndicator';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
+import { RotatingBackground } from '../src/components/common/RotatingBackground';
 import { asyncStoragePersister } from '../src/utils/queryPersister';
 import { ACCESS_TOKEN_TTL_MS, TOKEN_REFRESH_MARGIN_MS } from '../src/utils/constants';
 import * as SecureStore from 'expo-secure-store';
@@ -34,10 +35,13 @@ import { SECURE_KEYS } from '../src/utils/constants';
 
 SplashScreen.preventAutoHideAsync();
 
-// Global unhandled JS error handler — prevents silent crashes
-if (global.ErrorUtils) {
-  const originalHandler = global.ErrorUtils.getGlobalHandler?.();
-  global.ErrorUtils.setGlobalHandler?.((error: Error, isFatal?: boolean) => {
+// Global unhandled JS error handler — prevents silent crashes.
+// `ErrorUtils` is a React Native runtime global not present in the TS lib,
+// so it's accessed via the typed `globalThis` cast in types/global.d.ts.
+const errorUtils = globalThis.ErrorUtils;
+if (errorUtils) {
+  const originalHandler = errorUtils.getGlobalHandler?.();
+  errorUtils.setGlobalHandler?.((error: Error, isFatal?: boolean) => {
     console.error('[Klink] Global JS error:', error?.message ?? error);
     if (originalHandler) originalHandler(error, isFatal);
   });
@@ -66,7 +70,6 @@ export default function RootLayout() {
   const { initialize, isAuthenticated, logout } = useAuthStore();
   const { initialize: initTheme } = useThemeStore();
   const { initialize: initSound } = useSoundStore();
-  const { isDark } = useTheme();
 
   useNetworkStatus();
 
@@ -171,14 +174,28 @@ export default function RootLayout() {
             client={queryClient}
             persistOptions={{ persister: asyncStoragePersister }}
           >
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-            <Stack screenOptions={{ headerShown: false }}>
+            <StatusBar style="light" />
+            {/* THE LOGIN-PAGE LOOK, EVERYWHERE (2026-07-12): one rotating
+                worship-photo background behind the whole app; every screen
+                renders on a transparent container with glass surfaces. */}
+            <RotatingBackground
+              style={{ flex: 1 }}
+              overlayColors={['rgba(10,5,32,0.45)', 'rgba(10,5,32,0.6)', 'rgba(10,5,32,0.75)'] as const}
+            >
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            >
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="profile/edit" options={{ presentation: 'modal', headerShown: false }} />
               <Stack.Screen name="church/settings" options={{ presentation: 'modal', headerShown: false }} />
               <Stack.Screen name="members/[id]" options={{ presentation: 'modal' }} />
               <Stack.Screen name="giving/new" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="giving/pay" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="giving/payment-history" />
               <Stack.Screen name="giving/history" />
               <Stack.Screen name="projects/index" />
               <Stack.Screen name="projects/[id]" />
@@ -186,7 +203,19 @@ export default function RootLayout() {
               <Stack.Screen name="events/index" />
               <Stack.Screen name="announcements/index" />
               <Stack.Screen name="sermons/[id]" />
+              <Stack.Screen name="prayer/index" />
+              <Stack.Screen name="prayer/new" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="devotional/index" />
+              <Stack.Screen name="attendance/index" />
+              <Stack.Screen name="attendance/scan" options={{ presentation: 'fullScreenModal' }} />
+              <Stack.Screen name="attendance/session" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="events/[id]" />
+              <Stack.Screen name="groups/index" />
+              <Stack.Screen name="groups/[id]" />
+              <Stack.Screen name="notifications/index" />
+              <Stack.Screen name="store/index" />
             </Stack>
+            </RotatingBackground>
           </PersistQueryClientProvider>
           {/* Floats over every screen — only visible when music is playing */}
           <MusicIndicator />

@@ -6,6 +6,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MemberCard } from '../../src/components/screens/MemberCard';
+import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
+import { ScreenPhotos } from '../../src/utils/worshipImages';
 import { MemberCardSkeleton } from '../../src/components/common/KlinkSkeleton';
 import { EmptyState } from '../../src/components/common/EmptyState';
 import { membersApi, Member } from '../../src/api/members';
@@ -54,9 +56,11 @@ export default function MembersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
-      <LinearGradient
-        colors={Gradients.worship}
+      {/* Header — arena crowd photo (crowd-1) */}
+      <WatermarkBackground
+        imageSource={ScreenPhotos.members}
+        overlayOpacity={0.62}
+        overlayColor="#1A0533"
         style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         <Text style={styles.headerTitle}>Members</Text>
@@ -74,7 +78,7 @@ export default function MembersScreen() {
             accessibilityLabel="Search members"
           />
         </View>
-      </LinearGradient>
+      </WatermarkBackground>
 
       {/* List */}
       {isLoading ? (
@@ -82,7 +86,6 @@ export default function MembersScreen() {
       ) : (
         <FlashList
           data={members}
-          estimatedItemSize={84}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <MemberCard

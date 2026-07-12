@@ -1,9 +1,10 @@
-import React from 'react';
+﻿import React from 'react';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { EventCard } from '../../src/components/screens/EventCard';
 import { AnnouncementSkeleton } from '../../src/components/common/KlinkSkeleton';
 import { eventsApi, ChurchEvent } from '../../src/api/events';
@@ -42,9 +43,26 @@ export default function EventsScreen() {
       ) : (
         <FlashList
           data={events}
-          estimatedItemSize={88}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => <EventCard event={item} index={index} />}
+          renderItem={({ item, index }) => (
+            <EventCard
+              event={item}
+              index={index}
+              onPress={() =>
+                router.push({
+                  pathname: '/events/[id]',
+                  params: {
+                    id: item.id,
+                    title: item.title,
+                    description: item.description ?? '',
+                    eventDate: item.eventDate,
+                    location: item.location ?? '',
+                    category: item.category ?? '',
+                  },
+                })
+              }
+            />
+          )}
           onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
           onEndReachedThreshold={0.3}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.gold} />}

@@ -82,7 +82,6 @@ export default function AnnouncementsScreen() {
       ) : (
         <FlashList
           data={announcements}
-          estimatedItemSize={110}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => <AnnouncementCard announcement={item} index={index} />}
           onEndReached={() =>

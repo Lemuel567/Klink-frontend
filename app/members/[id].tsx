@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +16,19 @@ import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { formatDate, formatPhoneDisplay, formatRole } from '../../src/utils/formatters';
+
+// Real backend Role enum — assignment rules are enforced server-side
+// (Pastor appoints Elders/Managers; only an Elder appoints a Pastor; etc.)
+// and any rejection surfaces its exact message.
+const ASSIGNABLE_ROLES: { key: string; label: string; desc: string; color: string }[] = [
+  { key: 'PASTOR', label: 'Pastor', desc: 'Church shepherd — only an Elder can appoint', color: Colors.gold },
+  { key: 'ELDER', label: 'Elder', desc: 'Senior leader and counselor (max 25)', color: Colors.roseGold },
+  { key: 'MANAGER', label: 'Manager', desc: 'Content, store, attendance, facilities (max 10)', color: Colors.blue },
+  { key: 'FINANCIAL_SECRETARY', label: 'Financial Secretary', desc: 'Records and manages church finances', color: Colors.green },
+  { key: 'GROUP_ADMIN', label: 'Group Admin', desc: 'Posts messages in their group', color: '#9D6FD4' },
+  { key: 'GROUP_FINANCIAL_SECRETARY', label: 'Group Fin. Secretary', desc: 'Records group dues', color: '#1D9E75' },
+  { key: 'MEMBER', label: 'Member', desc: 'Regular church member', color: Colors.darkMuted },
+];
 
 export default function MemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,6 +64,36 @@ export default function MemberDetailScreen() {
       haptics.medium();
     },
   });
+
+  const { mutate: assignRole, isPending: assigningRole } = useMutation({
+    mutationFn: (newRole: string) => membersApi.assignRole(id!, newRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', id] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      haptics.success();
+      Alert.alert('Role updated', 'Their permissions change immediately.');
+    },
+    onError: (err: any) => {
+      haptics.error();
+      // Backend messages are specific ("Only an Elder can appoint a Pastor" …)
+      Alert.alert('Not allowed', err?.friendlyMessage ?? 'Could not change the role.');
+    },
+  });
+
+  const confirmAssignRole = (memberName: string, newRole: { key: string; label: string }) => {
+    haptics.light();
+    Alert.alert(
+      'Change role',
+      `Make ${memberName} ${newRole.label}? This updates their app permissions immediately.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: () => assignRole(newRole.key) },
+      ],
+    );
+  };
+
+  // Leaders manage roles; backend enforces the exact rules per caller role
+  const canManageRoles = role === 'PASTOR' || role === 'ELDER' || role === 'MANAGER';
 
   if (isLoading) {
     return (
@@ -104,38 +147,85 @@ export default function MemberDetailScreen() {
           </InfoSection>
         </ScrollReveal>
 
-        <ScrollReveal delay={100}>
-          <InfoSection title="Church profile" theme={theme}>
-            <InfoRow label="Role" value={formatRole(member.role)} theme={theme} />
-            <InfoRow label="Category" value={member.category} theme={theme} />
-            <InfoRow label="Member since" value={formatDate(member.createdAt)} theme={theme} />
-            {member.dateOfBirth && (
-              <InfoRow label="Date of birth" value={formatDate(member.dateOfBirth)} theme={theme} />
-            )}
-          </InfoSection>
-        </ScrollReveal>
+        {/* Hidden entirely for the directory view (regular members see name + phone only) */}
+        {member.role && (
+          <ScrollReveal delay={100}>
+            <InfoSection title="Church profile" theme={theme}>
+              <InfoRow label="Role" value={formatRole(member.role)} theme={theme} />
+              {member.category && <InfoRow label="Category" value={member.category} theme={theme} />}
+              {member.createdAt && (
+                <InfoRow label="Member since" value={formatDate(member.createdAt)} theme={theme} />
+              )}
+              {member.dateOfBirth && (
+                <InfoRow label="Date of birth" value={formatDate(member.dateOfBirth)} theme={theme} />
+              )}
+            </InfoSection>
+          </ScrollReveal>
+        )}
 
         <ScrollReveal delay={200}>
-          <InfoSection title="Verification" theme={theme}>
-            <InfoRow
-              label="Email verified"
-              value={member.emailVerified ? 'Yes' : 'No'}
-              valueColor={member.emailVerified ? Colors.green : Colors.red}
-              theme={theme}
-            />
-            <InfoRow
-              label="Phone verified"
-              value={member.phoneVerified ? 'Yes' : 'No'}
-              valueColor={member.phoneVerified ? Colors.green : Colors.red}
-              theme={theme}
-            />
-            <InfoRow
-              label="Device type"
-              value={member.hasSmartphone ? 'Smartphone' : 'Basic phone'}
-              theme={theme}
-            />
-          </InfoSection>
+          {member.role ? (
+            <InfoSection title="Verification" theme={theme}>
+              <InfoRow
+                label="Email verified"
+                value={member.emailVerified ? 'Yes' : 'No'}
+                valueColor={member.emailVerified ? Colors.green : Colors.red}
+                theme={theme}
+              />
+              <InfoRow
+                label="Phone verified"
+                value={member.phoneVerified ? 'Yes' : 'No'}
+                valueColor={member.phoneVerified ? Colors.green : Colors.red}
+                theme={theme}
+              />
+              <InfoRow
+                label="Device type"
+                value={member.hasSmartphone ? 'Smartphone' : 'Basic phone'}
+                theme={theme}
+              />
+            </InfoSection>
+          ) : null}
         </ScrollReveal>
+
+        {/* Member management — change role (leaders only, full view only) */}
+        {canManageRoles && member.role && member.status === 'ACTIVE' && (
+          <ScrollReveal delay={250}>
+            <InfoSection title="Member management" theme={theme}>
+              <Text style={[styles.roleHint, { color: theme.textMuted }]}>
+                Tap a role to assign it. Current role is highlighted.
+              </Text>
+              {ASSIGNABLE_ROLES.map((r) => {
+                const isCurrent = member.role === r.key;
+                return (
+                  <TouchableOpacity
+                    key={r.key}
+                    disabled={isCurrent || assigningRole}
+                    onPress={() => confirmAssignRole(member.fullName, r)}
+                    style={[
+                      styles.roleOption,
+                      { borderColor: isCurrent ? Colors.gold : 'rgba(255,255,255,0.12)' },
+                      isCurrent && styles.roleOptionCurrent,
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isCurrent }}
+                    accessibilityLabel={`${r.label}: ${r.desc}`}
+                  >
+                    <View style={[styles.roleDot, { backgroundColor: r.color }]} />
+                    <View style={styles.roleTextWrap}>
+                      <Text style={[styles.roleLabel, { color: theme.text }]} numberOfLines={1}>
+                        {r.label}
+                      </Text>
+                      <Text style={[styles.roleDesc, { color: theme.textMuted }]} numberOfLines={1}>
+                        {r.desc}
+                      </Text>
+                    </View>
+                    {isCurrent && <Text style={styles.roleCheck}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </InfoSection>
+          </ScrollReveal>
+        )}
 
         {/* Deactivate / Reactivate */}
         {member.status === 'ACTIVE' && canDeactivate && (
@@ -226,6 +316,24 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     letterSpacing: LetterSpacing.tight,
   },
+  roleHint: { fontSize: FontSize.caption, marginBottom: Spacing.xs },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 52,
+    marginBottom: Spacing.xs,
+  },
+  roleOptionCurrent: { backgroundColor: 'rgba(244,164,41,0.1)' },
+  roleDot: { width: 10, height: 10, borderRadius: 5 },
+  roleTextWrap: { flex: 1 },
+  roleLabel: { fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
+  roleDesc: { fontSize: FontSize.caption, marginTop: 1 },
+  roleCheck: { color: Colors.gold, fontSize: FontSize.body, fontWeight: FontWeight.bold },
   deactivatedBadge: {
     backgroundColor: 'rgba(220,38,38,0.2)',
     borderRadius: BorderRadius.full,

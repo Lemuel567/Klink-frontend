@@ -29,17 +29,27 @@ export function MemberCard({ member, index = 0, onPress }: Props) {
             <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
               {member.fullName}
             </Text>
-            <View style={styles.meta}>
-              <RoleBadge role={member.role} />
-              {member.status === 'DEACTIVATED' && (
-                <View style={styles.deactivatedBadge}>
-                  <Text style={styles.deactivatedText}>Inactive</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.joined, { color: theme.textMuted }]}>
-              Joined {formatRelativeTime(member.createdAt)}
-            </Text>
+            {/* Directory view (regular members) has NAME + PHONE only — every
+                other field is null-guarded because the backend hides it. */}
+            {(member.role || member.status === 'DEACTIVATED') && (
+              <View style={styles.meta}>
+                {member.role && <RoleBadge role={member.role} />}
+                {member.status === 'DEACTIVATED' && (
+                  <View style={styles.deactivatedBadge}>
+                    <Text style={styles.deactivatedText}>Inactive</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            {member.phone ? (
+              <Text style={[styles.joined, { color: theme.textMuted }]} numberOfLines={1}>
+                {member.phone}
+              </Text>
+            ) : member.createdAt ? (
+              <Text style={[styles.joined, { color: theme.textMuted }]}>
+                Joined {formatRelativeTime(member.createdAt)}
+              </Text>
+            ) : null}
           </View>
         </View>
       </KlinkCard>

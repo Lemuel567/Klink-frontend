@@ -1,18 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
 import { KlinkAvatar, RoleBadge } from '../../src/components/common/KlinkAvatar';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkToast } from '../../src/components/common/KlinkToast';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { membersApi } from '../../src/api/members';
 import { givingApi } from '../../src/api/giving';
+import { churchApi } from '../../src/api/church';
+import { confirmAction } from '../../src/utils/confirmDelete';
 import { useAuthStore, useUser } from '../../src/store/authStore';
-import { useThemeStore } from '../../src/store/themeStore';
 import { useSoundStore } from '../../src/store/soundStore';
 import { soundManager } from '../../src/utils/soundManager';
 import { Colors, Gradients } from '../../src/theme/colors';
@@ -26,8 +28,7 @@ const { width, height } = Dimensions.get('window');
 const PHOTO_HEIGHT = height * 0.35;
 
 export default function ProfileScreen() {
-  const { theme, isDark } = useTheme();
-  const { setPreference } = useThemeStore();
+  const { theme } = useTheme();
   const { musicEnabled, setMusicEnabled } = useSoundStore();
   const user = useUser();
   const { logout } = useAuthStore();
@@ -39,6 +40,59 @@ export default function ProfileScreen() {
     queryKey: ['myPayments'],
     queryFn: () => givingApi.getMyPayments({ size: 100 }),
   });
+
+  // Church code — leadership needs it to invite new members
+  const queryClient = useQueryClient();
+  const isLeadership = ['PASTOR', 'ELDER', 'MANAGER'].includes(user?.role ?? '');
+  const canRegenerate = ['PASTOR', 'ELDER'].includes(user?.role ?? '');
+  const { data: church } = useQuery({
+    queryKey: ['church-settings'],
+    queryFn: () => churchApi.getSettings(),
+    enabled: isLeadership,
+  });
+
+  const { mutate: regenerateCode, isPending: regenerating } = useMutation({
+    mutationFn: () => churchApi.regenerateCode(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['church-settings'] });
+      haptics.success();
+      setToast({ message: 'New church code generated', type: 'success' });
+    },
+    onError: () => {
+      haptics.heavy();
+      setToast({ message: 'Could not regenerate the code', type: 'info' });
+    },
+  });
+
+  const handleCopyCode = async () => {
+    if (!church?.churchCode) return;
+    haptics.light();
+    await Clipboard.setStringAsync(church.churchCode);
+    setToast({ message: 'Church code copied', type: 'success' });
+  };
+
+  const handleShareCode = async () => {
+    if (!church?.churchCode) return;
+    haptics.light();
+    try {
+      await Share.share({
+        message: `Join ${church.churchName ?? 'my church'} on Klink! Use church code: ${church.churchCode}`,
+      });
+    } catch {
+      // user dismissed the share sheet
+    }
+  };
+
+  const handleRegenerate = () => {
+    haptics.medium();
+    confirmAction({
+      title: 'Regenerate church code?',
+      message:
+        'Current members keep their access, but anyone joining from now on will need the NEW code. The old code stops working immediately.',
+      confirmLabel: 'Regenerate',
+      onConfirm: () => regenerateCode(),
+    });
+  };
 
   const totalGiven = myPayments?.content?.reduce((s: number, p: { amount: number }) => s + p.amount, 0) ?? 0;
 
@@ -63,12 +117,11 @@ export default function ProfileScreen() {
       contentContainerStyle={{ paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Profile hero with parallax photo effect */}
+      {/* Profile hero — transparent: the global rotating worship photo shows
+          through (login-page look), with only a light graduated veil for text */}
       <View style={[styles.heroWrap, { height: PHOTO_HEIGHT }]}>
         <LinearGradient
-          colors={Gradients.darkWorship}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
+          colors={['rgba(10,5,32,0.15)', 'rgba(10,5,32,0.35)', 'rgba(10,5,32,0.7)']}
           style={StyleSheet.absoluteFill}
         />
 
@@ -84,9 +137,13 @@ export default function ProfileScreen() {
             size={96}
             style={glow ? { shadowColor: glow, shadowOpacity: 0.6, shadowRadius: 20, elevation: 12 } : undefined}
           />
-          <Text style={styles.name}>{user?.fullName}</Text>
+          <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit>
+            {user?.fullName}
+          </Text>
           {user?.role && <RoleBadge role={user.role} />}
-          {user?.email && <Text style={styles.email}>{user.email}</Text>}
+          {user?.email && (
+            <Text style={styles.email} numberOfLines={1}>{user.email}</Text>
+          )}
         </View>
       </View>
 
@@ -101,35 +158,80 @@ export default function ProfileScreen() {
         </View>
       </ScrollReveal>
 
+      {/* Church code — how new members join; leadership only */}
+      {isLeadership && church?.churchCode && (
+        <ScrollReveal delay={60}>
+          <View style={styles.codeCard}>
+            <Text style={styles.codeLabel}>CHURCH CODE</Text>
+            <Text style={styles.codeValue} accessibilityLabel={`Church code ${church.churchCode}`}>
+              {church.churchCode}
+            </Text>
+            <Text style={[styles.codeHint, { color: theme.textMuted }]}>
+              New members enter this code to join {church.churchName ?? 'your church'}
+            </Text>
+            <View style={styles.codeActions}>
+              <TouchableOpacity
+                onPress={handleCopyCode}
+                style={styles.codeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Copy church code"
+              >
+                <Text style={styles.codeBtnText}>Copy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleShareCode}
+                style={styles.codeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Share church code"
+              >
+                <Text style={styles.codeBtnText}>Share</Text>
+              </TouchableOpacity>
+              {canRegenerate && (
+                <TouchableOpacity
+                  onPress={handleRegenerate}
+                  disabled={regenerating}
+                  style={[styles.codeBtn, styles.codeBtnDanger]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Regenerate church code"
+                >
+                  <Text style={styles.codeBtnDangerText}>
+                    {regenerating ? 'Working…' : 'Regenerate'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </ScrollReveal>
+      )}
+
       {/* Menu items */}
       <ScrollReveal delay={100}>
         <View style={[styles.section, { backgroundColor: theme.card }]}>
           <MenuItem label="Edit profile" onPress={() => router.push('/profile/edit')} theme={theme} />
+          <MenuItem label="My attendance" onPress={() => router.push('/attendance')} theme={theme} />
           <MenuItem label="Giving history" onPress={() => router.push('/giving/history')} theme={theme} />
-          <MenuItem label="My projects" onPress={() => router.push('/projects/')} theme={theme} />
+          <MenuItem label="Church projects" onPress={() => router.push('/projects')} theme={theme} />
+          <MenuItem label="Prayer wall" onPress={() => router.push('/prayer')} theme={theme} />
+          <MenuItem label="Daily devotional" onPress={() => router.push('/devotional')} theme={theme} />
+          <MenuItem label="Groups" onPress={() => router.push('/groups')} theme={theme} />
           <MenuItem label="Church settings" onPress={() => router.push('/church/settings')} theme={theme} />
         </View>
       </ScrollReveal>
 
       <ScrollReveal delay={200}>
         <View style={[styles.section, { backgroundColor: theme.card }]}>
-          <MenuItem label="Notifications" onPress={() => {}} theme={theme} />
-          <View style={styles.switchRow}>
-            <Text style={[styles.menuLabel, { color: theme.text }]}>Dark mode</Text>
-            <Switch
-              value={isDark}
-              onValueChange={(v) => setPreference(v ? 'dark' : 'light')}
-              trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
-            />
-          </View>
+          <MenuItem label="Notifications" onPress={() => router.push('/notifications')} theme={theme} />
+          {/* Dark-mode toggle removed 2026-07-12 — Klink is dark-only by design */}
           <View style={styles.switchRow}>
             <View style={styles.musicLabelWrap}>
               <View style={[styles.musicIcon, { backgroundColor: musicEnabled ? 'rgba(244,164,41,0.15)' : 'rgba(139,143,168,0.15)' }]}>
                 <Text style={[styles.musicNote, { color: musicEnabled ? Colors.gold : Colors.darkMuted }]}>♪</Text>
               </View>
-              <View>
-                <Text style={[styles.menuLabel, { color: theme.text }]}>Worship Music</Text>
-                <Text style={[styles.musicSubtitle, { color: theme.textMuted }]}>Plays across all screens while you use the app</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuLabel, { color: theme.text }]} numberOfLines={1}>Worship Music</Text>
+                <Text style={[styles.musicSubtitle, { color: theme.textMuted }]} numberOfLines={2}>
+                  Plays across all screens while you use the app
+                </Text>
               </View>
             </View>
             <Switch
@@ -174,8 +276,16 @@ function StatItem({ label, value, highlight }: { label: string; value: string; h
   const { theme } = useTheme();
   return (
     <View style={styles.statItem}>
-      <Text style={[styles.statValue, { color: highlight ? Colors.gold : theme.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.textMuted }]}>{label}</Text>
+      <Text
+        style={[styles.statValue, { color: highlight ? Colors.gold : theme.text }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {value}
+      </Text>
+      <Text style={[styles.statLabel, { color: theme.textMuted }]} numberOfLines={2}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -220,6 +330,9 @@ const styles = StyleSheet.create({
     fontSize: FontSize.h2,
     fontWeight: FontWeight.bold,
     letterSpacing: LetterSpacing.tight,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.lg,
+    maxWidth: '100%',
   },
   email: { color: 'rgba(255,255,255,0.5)', fontSize: FontSize.small },
   statsRow: {
@@ -232,6 +345,45 @@ const styles = StyleSheet.create({
   statValue: { fontSize: FontSize.body, fontWeight: FontWeight.bold },
   statLabel: { fontSize: FontSize.caption, textAlign: 'center' },
   statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 4 },
+  codeCard: {
+    marginHorizontal: Spacing.pagePadding,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 2,
+    borderColor: Colors.gold,
+    backgroundColor: 'rgba(244,164,41,0.08)',
+    padding: Spacing.lg,
+    alignItems: 'center',
+    gap: 6,
+  },
+  codeLabel: {
+    color: Colors.gold,
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 3,
+  },
+  codeValue: {
+    color: Colors.gold,
+    fontSize: 40,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 6,
+    textAlign: 'center',
+    maxWidth: '100%',
+  },
+  codeHint: { fontSize: FontSize.caption, textAlign: 'center' },
+  codeActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
+  codeBtn: {
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  codeBtnText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold },
+  codeBtnDanger: { borderColor: 'rgba(220,38,38,0.6)' },
+  codeBtnDangerText: { color: Colors.red, fontSize: FontSize.small, fontWeight: FontWeight.bold },
   section: {
     marginHorizontal: Spacing.pagePadding,
     marginBottom: Spacing.md,

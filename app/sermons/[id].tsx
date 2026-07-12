@@ -9,6 +9,8 @@ import { ScriptureReveal } from '../../src/components/church/ScriptureReveal';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { sermonsApi } from '../../src/api/sermons';
 import { soundManager } from '../../src/utils/soundManager';
+import { useBookmarkStore } from '../../src/store/bookmarkStore';
+import { useHaptics } from '../../src/hooks/useHaptics';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -19,6 +21,9 @@ export default function SermonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
+  const toggleBookmark = useBookmarkStore((s) => s.toggle);
+  const bookmarked = useBookmarkStore((s) => (id ? s.sermonIds.includes(id) : false));
 
   const sermonSound = useRef<Audio.Sound | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -125,9 +130,24 @@ export default function SermonDetailScreen() {
           colors={Gradients.worship}
           style={[styles.hero, { paddingTop: insets.top + 16 }]}
         >
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
-            <Text style={styles.backIcon}>‹</Text>
-          </TouchableOpacity>
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
+              <Text style={styles.backIcon}>‹</Text>
+            </TouchableOpacity>
+            {sermon && (
+              <TouchableOpacity
+                onPress={() => { haptics.medium(); toggleBookmark(sermon.id); }}
+                style={styles.bookmarkBtn}
+                accessibilityRole="button"
+                accessibilityLabel={bookmarked ? 'Remove bookmark' : 'Bookmark this sermon'}
+                accessibilityState={{ selected: bookmarked }}
+              >
+                <Text style={[styles.bookmarkIcon, bookmarked && styles.bookmarkIconActive]}>
+                  {bookmarked ? '🔖 Saved' : '🔖 Save'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <Text style={styles.sermonTitle}>{sermon?.title ?? ''}</Text>
           <Text style={styles.preacher}>{sermon?.preacher}</Text>
@@ -220,6 +240,21 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, justifyContent: 'center' },
   backIcon: { color: Colors.white, fontSize: 32 },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bookmarkBtn: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  bookmarkIcon: { color: Colors.white, fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
+  bookmarkIconActive: { color: Colors.goldBright },
   sermonTitle: {
     color: Colors.white,
     fontSize: FontSize.h2,
