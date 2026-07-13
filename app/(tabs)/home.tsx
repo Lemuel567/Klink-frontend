@@ -78,13 +78,13 @@ export default function HomeScreen() {
     useQuery({ queryKey: ['announcements'], queryFn: () => announcementsApi.list({ size: 5 }) });
 
   const { data: sermons, isLoading: loadingSermons, refetch: refetchSermons } =
-    useQuery({ queryKey: ['sermons'], queryFn: () => sermonsApi.list({ size: 5 }) });
+    useQuery({ queryKey: ['sermons', 'home-preview'], queryFn: () => sermonsApi.list({ size: 5 }) });
 
   const { data: events, isLoading: loadingEvents, refetch: refetchEvents } =
     useQuery({ queryKey: ['events'], queryFn: () => eventsApi.list({ size: 5 }) });
 
   const { data: projects, isLoading: loadingProjects, refetch: refetchProjects } =
-    useQuery({ queryKey: ['projects'], queryFn: () => projectsApi.list({ size: 4, status: 'FUNDRAISING' }) });
+    useQuery({ queryKey: ['projects', 'home-preview'], queryFn: () => projectsApi.list({ size: 4, status: 'FUNDRAISING' }) });
 
   // Member's own giving — real data from /finances/me (church-wide totals are not
   // exposed to every role, so the card reflects the signed-in member's giving).

@@ -172,7 +172,10 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <PersistQueryClientProvider
             client={queryClient}
-            persistOptions={{ persister: asyncStoragePersister }}
+            // buster: bump to drop ALL persisted cache. v2 (2026-07-12) fixes the
+            // "length of undefined" crash inside TanStack's infiniteQueryBehavior —
+            // stale pre-upgrade infinite-query entries lacked pageParams.
+            persistOptions={{ persister: asyncStoragePersister, buster: 'klink-cache-v3' }}
           >
             <StatusBar style="light" />
             {/* THE LOGIN-PAGE LOOK, EVERYWHERE (2026-07-12): one rotating

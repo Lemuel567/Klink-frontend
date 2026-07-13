@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -281,9 +282,12 @@ export default function NewGivingScreen() {
                               accessibilityRole="button"
                               accessibilityLabel={m.fullName}
                             >
-                              <Text style={styles.pickerItemName}>{m.fullName}</Text>
-                              <Text style={styles.pickerItemRole}>
-                                {m.role.replace(/_/g, ' ')}
+                              <Text style={styles.pickerItemName} numberOfLines={1}>
+                                {m.fullName}
+                              </Text>
+                              {/* role is NULL in the directory view — never call .replace on it */}
+                              <Text style={styles.pickerItemRole} numberOfLines={1}>
+                                {m.role ? m.role.replace(/_/g, ' ') : m.phone ?? ''}
                               </Text>
                             </TouchableOpacity>
                           ))}
@@ -294,19 +298,23 @@ export default function NewGivingScreen() {
                 </View>
               )}
 
-              {/* Amount */}
-              <Text style={styles.cardLabel}>{selected.label} amount (GHS) *</Text>
-              <View style={styles.amountRow}>
-                <Text style={[styles.currency, { color: selected.color }]}>GHS</Text>
-                <KlinkInput
-                  label="0.00"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  containerStyle={styles.amountInput}
-                />
+              {/* Amount — label ABOVE, big clear input, no floating-label collision */}
+              <View>
+                <Text style={styles.fieldLabel}>{selected.label.toUpperCase()} AMOUNT (GHS) *</Text>
+                <View style={styles.amountBox}>
+                  <Text style={[styles.currency, { color: selected.color }]}>GHS</Text>
+                  <TextInput
+                    style={styles.amountField}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    keyboardType="decimal-pad"
+                    value={amount}
+                    onChangeText={setAmount}
+                    accessibilityLabel="Amount in Ghana cedis"
+                  />
+                </View>
+                {amountError ? <Text style={styles.fieldError}>{amountError}</Text> : null}
               </View>
-              {amountError ? <Text style={styles.fieldError}>{amountError}</Text> : null}
 
               {/* Date */}
               <KlinkInput
@@ -333,6 +341,28 @@ export default function NewGivingScreen() {
                 disabled={!amount.trim() || isPending}
                 loading={isPending}
               />
+
+              {/* Digital alternative — FinSec initiates a Paystack payment ON BEHALF
+                  of the selected member (MoMo/card); record is created automatically */}
+              {needsMember && selectedMember && (
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.medium();
+                    router.push({
+                      pathname: '/giving/pay',
+                      params: { memberId: selectedMember.id, memberName: selectedMember.fullName },
+                    });
+                  }}
+                  style={styles.digitalBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Initiate digital payment for ${selectedMember.fullName}`}
+                >
+                  <Text style={styles.digitalBtnText}>
+                    📱 Initiate digital payment for {selectedMember.fullName.split(' ')[0]} instead
+                  </Text>
+                  <Text style={styles.digitalBtnSub}>MoMo or card via Paystack — recorded automatically</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollReveal>
         </ScrollView>
@@ -435,10 +465,40 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.medium,
   },
   pickerItemRole: { color: Colors.darkMuted, fontSize: FontSize.caption },
-  amountRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  currency: { fontSize: FontSize.h3, fontWeight: FontWeight.bold, marginBottom: 4 },
-  amountInput: { flex: 1, marginBottom: 0 },
-  fieldError: { color: Colors.red, fontSize: FontSize.caption, marginTop: -8 },
+  // Label-above pattern — no floating labels, nothing can overlap
+  fieldLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  amountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 14,
+    paddingHorizontal: Spacing.md,
+    minHeight: 60,
+    gap: Spacing.sm,
+  },
+  currency: { fontSize: 20, fontWeight: FontWeight.bold },
+  amountField: { flex: 1, color: Colors.white, fontSize: 24, fontWeight: FontWeight.semiBold },
+  fieldError: { color: Colors.red, fontSize: FontSize.caption, marginTop: 6 },
+  digitalBtn: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(244,164,41,0.5)',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 52,
+    justifyContent: 'center',
+  },
+  digitalBtnText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold, textAlign: 'center' },
+  digitalBtnSub: { color: Colors.darkMuted, fontSize: FontSize.caption, textAlign: 'center' },
   // Non-FinSec info view
   infoWrap: {
     flex: 1,

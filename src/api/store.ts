@@ -9,6 +9,7 @@ export interface StoreItem {
   quantity: number;
   category?: string;
   photoUrl?: string;
+  photoUrls?: string[];
   status: 'AVAILABLE' | 'SOLD_OUT';
   createdBy: string;
   createdAt: string;
@@ -42,6 +43,29 @@ export interface StorePaymentPage {
 }
 
 export const storeApi = {
+  // JSON create/update (2026-07-12): photos pre-uploaded via mediaApi.upload,
+  // URLs passed in photoUrls — supports multiple pictures per item
+  createItemJson: (body: {
+    name: string;
+    description?: string;
+    price: number;
+    quantity: number;
+    category?: string;
+    photoUrls?: string[];
+  }) => apiClient.post<StoreItem>('/store/items', body).then((r) => r.data),
+
+  updateItemJson: (
+    id: string,
+    body: Partial<{
+      name: string;
+      description: string;
+      price: number;
+      quantity: number;
+      category: string;
+      photoUrls: string[];
+    }>,
+  ) => apiClient.put<StoreItem>(`/store/items/${id}`, body).then((r) => r.data),
+
   // Manager: create item via multipart/form-data with individual @RequestPart fields
   createItem: (formData: FormData) =>
     apiClient
@@ -61,8 +85,9 @@ export const storeApi = {
   listItems: (params?: { page?: number; size?: number }) =>
     apiClient.get<StoreItemPage>('/store/items', { params }).then((r) => r.data),
 
-  // momoReference is @NotBlank — required by backend
-  buyItem: (body: { itemId: string; momoReference: string; datePaid?: string }) =>
+  // momoReference required for member self-purchases; FinSec may omit it (cash)
+  // and may pass memberId to record a sale ON BEHALF OF that member
+  buyItem: (body: { itemId: string; momoReference?: string; datePaid?: string; memberId?: string }) =>
     apiClient.post<StorePayment>('/store/pay', body).then((r) => r.data),
 
   // Manager: mark as collected

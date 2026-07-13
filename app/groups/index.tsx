@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -35,7 +36,8 @@ import { useRole } from '../../src/store/authStore';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
 
-const LEADERS = ['PASTOR', 'ELDER'];
+// Leadership that can create groups and appoint the admin (matches backend)
+const CAN_CREATE = ['PASTOR', 'ELDER', 'MANAGER'];
 
 export default function GroupsScreen() {
   const { theme } = useTheme();
@@ -44,7 +46,7 @@ export default function GroupsScreen() {
   const role = useRole();
   const queryClient = useQueryClient();
 
-  const isLeader = role ? LEADERS.includes(role) : false;
+  const canCreate = role ? CAN_CREATE.includes(role) : false;
 
   const [creating, setCreating] = useState(false);
   const [groupName, setGroupName] = useState('');
@@ -59,7 +61,6 @@ export default function GroupsScreen() {
     queryFn: ({ pageParam = 0 }) => groupsApi.getAll({ page: pageParam, size: PAGE_SIZE }),
     getNextPageParam: (last) => (last.number + 1 < last.totalPages ? last.number + 1 : undefined),
     initialPageParam: 0,
-    enabled: isLeader,
   });
 
   const groups: Group[] = query.data?.pages?.flatMap((p) => p.content) ?? [];
@@ -110,43 +111,9 @@ export default function GroupsScreen() {
 
   const openGroup = (g: Group) => {
     haptics.light();
-    router.push({
-      pathname: '/groups/[id]',
-      params: {
-        id: g.id,
-        groupName: g.groupName,
-        description: g.description ?? '',
-        duesAmount: g.duesAmount != null ? String(g.duesAmount) : '',
-        status: g.status,
-        groupAdminName: g.groupAdminName ?? '',
-        groupFinSecName: g.groupFinSecName ?? '',
-      },
-    });
+    // Detail screen fetches fresh detail by id — group roles are per-group (FK-based).
+    router.push({ pathname: '/groups/[id]', params: { id: g.id } });
   };
-
-  if (!isLeader) {
-    return (
-      <View style={styles.container}>
-        <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
-        <View style={[styles.infoWrap, { paddingTop: insets.top + 32 }]}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Text style={styles.backIcon}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.infoIcon}>👥</Text>
-          <Text style={styles.infoTitle}>Groups are managed by leaders</Text>
-          <Text style={styles.infoBody}>
-            Your Pastor or an Elder manages church groups. If you lead a group, they can share
-            your group's page with you directly.
-          </Text>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -175,6 +142,13 @@ export default function GroupsScreen() {
             <ScrollReveal delay={Math.min(index, 8) * StaggerDelay.list}>
               <KlinkCard onPress={() => openGroup(item)} style={styles.groupCard}>
                 <View style={styles.groupRow}>
+                  {item.photoUrl ? (
+                    <Image source={{ uri: item.photoUrl }} style={styles.groupAvatar} />
+                  ) : (
+                    <View style={[styles.groupAvatar, styles.groupAvatarPlaceholder]}>
+                      <Text style={styles.groupAvatarInitial}>{item.groupName.charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
                   <View style={styles.groupInfo}>
                     <Text style={[styles.groupName, { color: theme.text }]} numberOfLines={1}>
                       {item.groupName}
@@ -185,7 +159,8 @@ export default function GroupsScreen() {
                       </Text>
                     ) : null}
                     <Text style={[styles.groupMeta, { color: theme.textMuted }]}>
-                      {item.groupAdminName ? `Led by ${item.groupAdminName}` : 'No leader assigned yet'}
+                      {item.groupAdminName ? `Led by ${item.groupAdminName}` : 'No admin yet'}
+                      {` · ${item.memberCount} member${item.memberCount === 1 ? '' : 's'}`}
                     </Text>
                   </View>
                   <View
@@ -221,28 +196,34 @@ export default function GroupsScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="👥"
-              title="No groups yet"
-              subtitle="Create ministries and fellowships so members can connect."
-              actionLabel="Create the first group"
-              onAction={() => setCreating(true)}
+              title={canCreate ? 'No groups yet' : 'No groups yet'}
+              subtitle={
+                canCreate
+                  ? 'Create ministries and fellowships so members can connect.'
+                  : 'When a leader adds you to a group, it will appear here.'
+              }
+              actionLabel={canCreate ? 'Create the first group' : undefined}
+              onAction={canCreate ? () => setCreating(true) : undefined}
             />
           }
         />
       )}
 
-      {/* Create FAB */}
-      <View style={[styles.fabContainer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          onPress={() => { haptics.medium(); setCreating(true); }}
-          style={styles.fab}
-          accessibilityRole="button"
-          accessibilityLabel="Create a new group"
-        >
-          <LinearGradient colors={Gradients.glory} style={styles.fabGradient}>
-            <Text style={styles.fabText}>+ New Group</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      {/* Create FAB — leadership only */}
+      {canCreate && (
+        <View style={[styles.fabContainer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity
+            onPress={() => { haptics.medium(); setCreating(true); }}
+            style={styles.fab}
+            accessibilityRole="button"
+            accessibilityLabel="Create a new group"
+          >
+            <LinearGradient colors={Gradients.glory} style={styles.fabGradient}>
+              <Text style={styles.fabText}>+ New Group</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Create modal */}
       <Modal visible={creating} transparent animationType="fade" onRequestClose={() => setCreating(false)}>
@@ -341,6 +322,9 @@ const styles = StyleSheet.create({
   headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: FontSize.small },
   groupCard: { marginHorizontal: Spacing.pagePadding, marginBottom: Spacing.sm },
   groupRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  groupAvatar: { width: 48, height: 48, borderRadius: 14 },
+  groupAvatarPlaceholder: { backgroundColor: 'rgba(244,164,41,0.18)', alignItems: 'center', justifyContent: 'center' },
+  groupAvatarInitial: { color: Colors.gold, fontSize: FontSize.h4, fontWeight: FontWeight.bold },
   groupInfo: { flex: 1, gap: 3 },
   groupName: { fontSize: FontSize.body, fontWeight: FontWeight.semiBold },
   groupDesc: { fontSize: FontSize.small, lineHeight: FontSize.small * 1.5 },

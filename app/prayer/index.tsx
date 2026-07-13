@@ -5,6 +5,8 @@ import {
   Modal,
   Platform,
   RefreshControl,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -46,6 +48,9 @@ export default function PrayerRequestsScreen() {
   const isLeader = role ? LEADERS.includes(role) : false;
 
   const [responding, setResponding] = useState<PrayerRequest | null>(null);
+  // Detail sheet — the old in-card expansion was invisible for short prayers,
+  // so tapping "did nothing"; now every tap opens this full-detail sheet.
+  const [viewing, setViewing] = useState<PrayerRequest | null>(null);
   const [responseText, setResponseText] = useState('');
 
   const query = useInfiniteQuery({
@@ -130,6 +135,7 @@ export default function PrayerRequestsScreen() {
               canDelete={isLeader || item.memberId === user?.id}
               onRespond={() => { setResponding(item); setResponseText(''); }}
               onDelete={() => handleDelete(item)}
+              onOpen={() => setViewing(item)}
             />
           )}
           onEndReached={() =>
@@ -168,6 +174,114 @@ export default function PrayerRequestsScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Detail sheet — slides up on card tap; full content, no truncation */}
+      <Modal
+        visible={viewing !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setViewing(null)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setViewing(null)} accessibilityLabel="Close" />
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, styles.sheetGlass]} />
+            <View style={styles.sheetHandle} />
+
+            {viewing && (
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+                <View style={styles.sheetHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sheetAuthor}>
+                      {viewing.memberName ?? 'A member'}
+                    </Text>
+                    <Text style={styles.sheetDate}>
+                      {new Date(viewing.createdAt).toLocaleString()}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.sheetBadge,
+                      { borderColor: viewing.visibility === 'PRIVATE' ? Colors.purpleLight : Colors.gold },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: viewing.visibility === 'PRIVATE' ? Colors.purpleLight : Colors.gold,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      }}
+                    >
+                      {viewing.visibility}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.sheetTitle}>{viewing.title}</Text>
+                <Text style={styles.sheetContent}>{viewing.content}</Text>
+
+                {viewing.status === 'ANSWERED' && viewing.leaderResponse ? (
+                  <View style={styles.sheetResponse}>
+                    <Text style={{ color: Colors.green, fontWeight: FontWeight.bold, fontSize: FontSize.small }}>
+                      🙏 Answered by your leaders
+                    </Text>
+                    <Text style={styles.sheetResponseText}>{viewing.leaderResponse}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.sheetActions}>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      haptics.light();
+                      try {
+                        await Share.share({
+                          message: `Please pray with me:\n\n${viewing.title}\n\n${viewing.content}\n\n— shared from Klink`,
+                        });
+                      } catch { /* dismissed */ }
+                    }}
+                    style={styles.sheetActionBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Share this prayer request"
+                  >
+                    <Text style={styles.sheetActionText}>Share</Text>
+                  </TouchableOpacity>
+                  {isLeader && viewing.status !== 'ANSWERED' && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        haptics.medium();
+                        const p = viewing;
+                        setViewing(null);
+                        setResponding(p);
+                        setResponseText('');
+                      }}
+                      style={[styles.sheetActionBtn, { borderColor: Colors.gold }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Respond and mark answered"
+                    >
+                      <Text style={[styles.sheetActionText, { color: Colors.gold }]}>Respond</Text>
+                    </TouchableOpacity>
+                  )}
+                  {(isLeader || viewing.memberId === user?.id) && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const p = viewing;
+                        setViewing(null);
+                        handleDelete(p);
+                      }}
+                      style={[styles.sheetActionBtn, { borderColor: 'rgba(220,38,38,0.6)' }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete this prayer request"
+                    >
+                      <Text style={[styles.sheetActionText, { color: Colors.red }]}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Respond modal — Pastor / Elder only */}
       <Modal
@@ -230,6 +344,76 @@ export default function PrayerRequestsScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Detail bottom sheet
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+    padding: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  sheetGlass: {
+    backgroundColor: 'rgba(26,19,64,0.94)',
+    borderTopWidth: 1,
+    borderColor: 'rgba(244,164,41,0.25)',
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    marginBottom: Spacing.md,
+  },
+  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.sm },
+  sheetAuthor: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold },
+  sheetDate: { color: 'rgba(255,255,255,0.45)', fontSize: FontSize.caption, marginTop: 2 },
+  sheetBadge: {
+    borderWidth: 1,
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  sheetTitle: {
+    color: Colors.white,
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.sm,
+    lineHeight: FontSize.h3 * 1.25,
+  },
+  sheetContent: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: FontSize.body,
+    lineHeight: FontSize.body * 1.7,
+    marginBottom: Spacing.md,
+  },
+  sheetResponse: {
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.4)',
+    backgroundColor: 'rgba(34,197,94,0.08)',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: 4,
+    marginBottom: Spacing.md,
+  },
+  sheetResponseText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: FontSize.small,
+    lineHeight: FontSize.small * 1.6,
+  },
+  sheetActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  sheetActionBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 99,
+    minHeight: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetActionText: { color: Colors.white, fontSize: FontSize.small, fontWeight: FontWeight.bold },
+
   container: { flex: 1 },
   header: { paddingHorizontal: Spacing.pagePadding, paddingBottom: Spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -18,9 +18,12 @@ interface Props {
   canDelete: boolean;  // author or Pastor / Elder
   onRespond?: () => void;
   onDelete?: () => void;
+  /** When provided, tapping the card opens the detail sheet instead of the
+      old in-card expansion (which was invisible for short prayers). */
+  onOpen?: () => void;
 }
 
-export function PrayerCard({ prayer, index = 0, canRespond, canDelete, onRespond, onDelete }: Props) {
+export function PrayerCard({ prayer, index = 0, canRespond, canDelete, onRespond, onDelete, onOpen }: Props) {
   const { theme } = useTheme();
   const haptics = useHaptics();
   const [expanded, setExpanded] = useState(false);
@@ -32,7 +35,11 @@ export function PrayerCard({ prayer, index = 0, canRespond, canDelete, onRespond
   return (
     <ScrollReveal delay={index * StaggerDelay.list}>
       <KlinkCard
-        onPress={() => { haptics.light(); setExpanded((e) => !e); }}
+        onPress={() => {
+          haptics.light();
+          if (onOpen) onOpen();
+          else setExpanded((e) => !e);
+        }}
         style={styles.card}
       >
         <View style={[styles.accent, { backgroundColor: accentColor }]} />
@@ -72,9 +79,11 @@ export function PrayerCard({ prayer, index = 0, canRespond, canDelete, onRespond
             <Text style={[styles.time, { color: theme.textMuted }]}>
               {prayer.memberName ?? 'A member'} · {formatRelativeTime(prayer.createdAt)}
             </Text>
-            {!isAnswered && (
+            {onOpen ? (
+              <Text style={[styles.openBadge, { color: Colors.gold }]}>Tap to read →</Text>
+            ) : !isAnswered ? (
               <Text style={[styles.openBadge, { color: Colors.gold }]}>Open</Text>
-            )}
+            ) : null}
           </View>
 
           {/* Actions — revealed when expanded */}

@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -83,8 +84,10 @@ const POLL_MAX_ATTEMPTS = 15; // ~30 seconds
 
 type Phase = 'form' | 'paying' | 'verifying' | 'success' | 'failed';
 
-// Optional params: projectId + projectTitle lock the payment to a project contribution
-type PayParams = { projectId?: string; projectTitle?: string };
+// Optional params: projectId + projectTitle lock the payment to a project contribution.
+// memberId + memberName (FinSec only): initiate the payment ON BEHALF OF that member —
+// the transaction, ledger record and receipt all credit them, not the FinSec.
+type PayParams = { projectId?: string; projectTitle?: string; memberId?: string; memberName?: string };
 
 export default function PayScreen() {
   const insets = useSafeAreaInsets();
@@ -93,6 +96,7 @@ export default function PayScreen() {
   const params = useLocalSearchParams<PayParams>();
 
   const isProject = Boolean(params.projectId);
+  const onBehalfOf = Boolean(params.memberId); // FinSec initiating for a member
 
   const [amount, setAmount] = useState('');
   const [amountError, setAmountError] = useState('');
@@ -170,6 +174,7 @@ export default function PayScreen() {
         paymentType: isProject ? 'PROJECT_CONTRIBUTION' : type,
         description: isProject ? `Contribution to ${params.projectTitle ?? 'project'}` : undefined,
         projectId: params.projectId || undefined,
+        memberId: params.memberId || undefined, // backend accepts this from FinSec only
       });
       referenceRef.current = init.reference;
 
@@ -221,8 +226,18 @@ export default function PayScreen() {
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.heading}>
-              {isProject ? `Give to ${params.projectTitle ?? 'this project'}` : 'Give online'}
+              {isProject
+                ? `Give to ${params.projectTitle ?? 'this project'}`
+                : onBehalfOf
+                  ? `Payment for ${params.memberName ?? 'member'}`
+                  : 'Give online'}
             </Text>
+            {onBehalfOf && (
+              <Text style={styles.onBehalfNote}>
+                Initiated by you as Financial Secretary — the giving record and receipt
+                will credit {params.memberName ?? 'the member'}.
+              </Text>
+            )}
             <Text style={styles.sub}>
               "Each of you should give what you have decided in your heart to give." — 2 Cor 9:7
             </Text>
@@ -234,18 +249,23 @@ export default function PayScreen() {
               <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, styles.glassOverlay]} />
 
-              <Text style={styles.cardLabel}>Amount</Text>
-              <View style={styles.amountRow}>
-                <Text style={[styles.currency, { color: accentColor }]}>GHS</Text>
-                <KlinkInput
-                  label="0.00"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  containerStyle={styles.amountInput}
-                  error={amountError}
-                />
+              <View>
+                <Text style={styles.fieldLabel}>AMOUNT (GHS)</Text>
+                <View style={[styles.amountBox, { borderColor: `${accentColor}66` }]}>
+                  <Text style={[styles.currency, { color: accentColor }]}>GHS</Text>
+                  <TextInput
+                    style={styles.amountField}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    keyboardType="decimal-pad"
+                    value={amount}
+                    onChangeText={setAmount}
+                    accessibilityLabel="Amount in Ghana cedis"
+                  />
+                </View>
+                {amountError ? <Text style={styles.amountErr}>{amountError}</Text> : null}
               </View>
+              {!isProject && <Text style={styles.fieldLabel}>GIVE TO</Text>}
 
               {/* Type selector (hidden for project contributions) — horizontal snap cards */}
               {!isProject && (
@@ -376,6 +396,9 @@ export default function PayScreen() {
           <Animated.Text entering={FadeIn.delay(650)} style={styles.successThanks}>
             Thank you for your faithfulness 🙏
           </Animated.Text>
+          <Animated.Text entering={FadeIn.delay(750)} style={styles.successRecorded}>
+            Recorded automatically — it's already in the giving records
+          </Animated.Text>
           <Animated.View entering={FadeIn.delay(800)} style={styles.successActions}>
             <KlinkButton label="Done" onPress={() => router.back()} />
           </Animated.View>
@@ -399,18 +422,36 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     letterSpacing: LetterSpacing.tight,
   },
-  sub: { color: Colors.darkMuted, fontSize: FontSize.small, fontStyle: 'italic', lineHeight: 20 },
+  sub: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.small, fontStyle: 'italic', lineHeight: 20 },
+  onBehalfNote: { color: Colors.gold, fontSize: FontSize.caption, lineHeight: 18 },
   card: { borderRadius: BorderRadius.xxl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.md },
   glassOverlay: {
     borderRadius: BorderRadius.xxl,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(20,12,42,0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(244,164,41,0.3)',
   },
   cardLabel: { color: Colors.white, fontSize: FontSize.body, fontWeight: FontWeight.medium },
-  amountRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  currency: { fontSize: FontSize.h3, fontWeight: FontWeight.bold, marginBottom: 4 },
-  amountInput: { flex: 1, marginBottom: 0 },
+  fieldLabel: {
+    color: Colors.gold,
+    fontSize: 11,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 1.4,
+    marginBottom: 8,
+  },
+  amountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingHorizontal: Spacing.md,
+    minHeight: 64,
+    gap: Spacing.sm,
+  },
+  currency: { fontSize: 20, fontWeight: FontWeight.bold },
+  amountField: { flex: 1, color: Colors.white, fontSize: 28, fontWeight: FontWeight.semiBold },
+  amountErr: { color: Colors.red, fontSize: FontSize.caption, marginTop: 6 },
   typeRow: {
     gap: TYPE_CARD_GAP,
     paddingRight: 15, // peek of the next card
@@ -458,7 +499,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: { backgroundColor: Colors.gold },
-  securedText: { color: Colors.darkMuted, fontSize: FontSize.caption, textAlign: 'center' },
+  securedText: { color: 'rgba(255,255,255,0.6)', fontSize: FontSize.caption, textAlign: 'center' },
   errorBox: {
     borderWidth: 1,
     borderColor: `${Colors.red}66`,
@@ -492,5 +533,6 @@ const styles = StyleSheet.create({
   successAmount: { color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold },
   successMeta: { color: Colors.darkMuted, fontSize: FontSize.caption, textAlign: 'center' },
   successThanks: { color: Colors.white, fontSize: FontSize.body, marginTop: Spacing.sm },
+  successRecorded: { color: 'rgba(255,255,255,0.6)', fontSize: FontSize.caption, textAlign: 'center' },
   successActions: { marginTop: Spacing.lg, alignSelf: 'stretch' },
 });

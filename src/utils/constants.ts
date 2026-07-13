@@ -11,12 +11,12 @@ const ENV: 'emulator' | 'wifi' | 'tunnel' | 'staging' | 'prod' = 'tunnel';
 
 // ─── YOUR LAPTOP'S WIFI IP (wifi mode only) ──────────────────────────────────
 // Run `ipconfig` (Windows) and paste the "Wireless LAN adapter Wi-Fi" IPv4 here
-const LAPTOP_WIFI_IP = '172.20.10.3';
+const LAPTOP_WIFI_IP = '192.168.137.1';
 
 // ─── BACKEND TUNNEL URL (tunnel mode only) ───────────────────────────────────
 // Started with: npm run tunnel:backend (cloudflared). The trycloudflare URL is
 // RANDOM per run — paste the new one here each session (keep the /api/v1 suffix).
-const TUNNEL_API_URL = 'https://shaped-nodes-any-dave.trycloudflare.com/api/v1';
+const TUNNEL_API_URL = 'https://receiving-whereas-bosnia-remember.trycloudflare.com/api/v1';
 
 // ─── BASE URL LOGIC ──────────────────────────────────────────────────────────
 function getBaseUrl(): string {

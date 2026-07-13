@@ -1,15 +1,20 @@
 import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import { Image as ExpoImage } from 'expo-image';
+import { mediaApi } from '../../src/api/media';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +57,36 @@ export default function NewProjectScreen() {
   const [expectedEndDate, setExpectedEndDate] = useState('');
   const [location, setLocation] = useState('');
   const [error, setError] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]); // uploaded URLs
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const addPhoto = async () => {
+    haptics.light();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo access in Settings.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    try {
+      setUploadingPhoto(true);
+      const uri = result.assets[0].uri;
+      const name = uri.split('/').pop() ?? 'project.jpg';
+      const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const uploaded = await mediaApi.upload(
+        { uri, name, type: ext === 'png' ? 'image/png' : 'image/jpeg' },
+        'projects',
+      );
+      setPhotos((prev) => [...prev, uploaded.imageUrl]);
+      haptics.success();
+    } catch (err: any) {
+      haptics.error();
+      Alert.alert('Error', err?.friendlyMessage ?? 'Photo upload failed.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const { mutate: create, isPending } = useMutation({
     mutationFn: () =>
@@ -64,7 +99,13 @@ export default function NewProjectScreen() {
         expectedEndDate: expectedEndDate.trim() || undefined,
         location: location.trim() || undefined,
       }),
-    onSuccess: (project) => {
+    onSuccess: async (project) => {
+      // Attach the picked photos to the freshly-created project (first = cover)
+      for (let i = 0; i < photos.length; i++) {
+        try {
+          await projectsApi.addImage(project.id, { imageUrl: photos[i], isPrimary: i === 0 });
+        } catch { /* one bad image must not block creation */ }
+      }
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       haptics.success();
       router.replace({ pathname: '/projects/[id]', params: { id: project.id } });
@@ -182,19 +223,59 @@ export default function NewProjectScreen() {
                 onChangeText={setTargetAmount}
                 keyboardType="decimal-pad"
               />
-              <KlinkInput
-                label="Start date (YYYY-MM-DD, optional)"
-                value={startDate}
-                onChangeText={setStartDate}
-                autoCapitalize="none"
-              />
-              <KlinkInput
-                label="Expected end date (YYYY-MM-DD, optional)"
-                value={expectedEndDate}
-                onChangeText={setExpectedEndDate}
-                autoCapitalize="none"
-              />
+              {/* Dates — label ABOVE (the long floating labels overlapped typed text) */}
+              <View style={styles.dateRow}>
+                <View style={styles.dateCol}>
+                  <Text style={styles.aboveLabel}>START DATE (OPTIONAL)</Text>
+                  <TextInput
+                    style={styles.dateInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    value={startDate}
+                    onChangeText={setStartDate}
+                    autoCapitalize="none"
+                    keyboardType="numbers-and-punctuation"
+                    accessibilityLabel="Start date"
+                  />
+                </View>
+                <View style={styles.dateCol}>
+                  <Text style={styles.aboveLabel}>EXPECTED END (OPTIONAL)</Text>
+                  <TextInput
+                    style={styles.dateInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    value={expectedEndDate}
+                    onChangeText={setExpectedEndDate}
+                    autoCapitalize="none"
+                    keyboardType="numbers-and-punctuation"
+                    accessibilityLabel="Expected end date"
+                  />
+                </View>
+              </View>
               <KlinkInput label="Location (optional)" value={location} onChangeText={setLocation} />
+
+              {/* Photos — added to the project right after creation */}
+              <Text style={styles.aboveLabel}>PHOTOS ({photos.length}) — FIRST IS THE COVER</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+                {photos.map((url, i) => (
+                  <TouchableOpacity
+                    key={url}
+                    onLongPress={() => setPhotos((prev) => prev.filter((u) => u !== url))}
+                    accessibilityLabel={`Photo ${i + 1} — long press to remove`}
+                  >
+                    <ExpoImage source={{ uri: url }} style={styles.photoThumb} contentFit="cover" />
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  onPress={addPhoto}
+                  disabled={uploadingPhoto}
+                  style={styles.addPhotoBox}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add a photo"
+                >
+                  {uploadingPhoto ? <ActivityIndicator color={Colors.gold} /> : <Text style={styles.addPhotoPlus}>＋</Text>}
+                </TouchableOpacity>
+              </ScrollView>
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -213,6 +294,38 @@ export default function NewProjectScreen() {
 }
 
 const styles = StyleSheet.create({
+  dateRow: { flexDirection: 'row', gap: Spacing.sm },
+  dateCol: { flex: 1 },
+  aboveLabel: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 1.1,
+    marginBottom: 8,
+  },
+  dateInput: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 14,
+    paddingHorizontal: Spacing.md,
+    color: Colors.white,
+    fontSize: FontSize.body,
+    minHeight: 52,
+  },
+  photoRow: { gap: Spacing.sm, paddingVertical: 4 },
+  photoThumb: { width: 72, height: 72, borderRadius: 12 },
+  addPhotoBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(244,164,41,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhotoPlus: { color: Colors.gold, fontSize: 26 },
   container: { flex: 1 },
   flex: { flex: 1 },
   scroll: {

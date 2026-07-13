@@ -60,6 +60,8 @@ export const paymentsApi = {
     paymentType: OnlinePaymentType;
     description?: string;
     projectId?: string;
+    /** FinSec only: initiate on behalf of another member (same church). */
+    memberId?: string;
   }) => apiClient.post<InitiatePaymentResponse>('/payments/initiate', body).then((r) => r.data),
 
   // Verify with Paystack; on success the backend records the giving/ledger entry
