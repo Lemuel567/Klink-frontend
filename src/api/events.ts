@@ -25,6 +25,8 @@ export const eventsApi = {
   list: (params?: { page?: number; size?: number }) =>
     apiClient.get<EventPage>('/events', { params }).then((r) => r.data),
 
+  get: (id: string) => apiClient.get<ChurchEvent>(`/events/${id}`).then((r) => r.data),
+
   create: (body: {
     title: string;
     description?: string;

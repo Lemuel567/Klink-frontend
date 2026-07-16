@@ -25,6 +25,18 @@ import { BorderRadius, Spacing } from '../../src/theme/spacing';
 
 type Mode = 'join' | 'create';
 
+/**
+ * Normalize a typed phone into E.164 (backend @ValidPhoneNumber requires it).
+ * Accepts "+233241234567" as-is; converts Ghana local "0241234567" → "+233241234567".
+ * Returns null when the number can't be made valid.
+ */
+function normalizeE164(raw: string): string | null {
+  const p = raw.replace(/[\s\-()]/g, '');
+  if (/^\+[1-9]\d{6,14}$/.test(p)) return p;
+  if (/^0\d{9}$/.test(p)) return `+233${p.slice(1)}`;
+  return null;
+}
+
 export default function RegisterScreen() {
   // ?mode=create preselects church registration (linked from the login screen)
   const params = useLocalSearchParams<{ mode?: string }>();
@@ -63,8 +75,28 @@ export default function RegisterScreen() {
       haptics.error();
       return;
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+    // Registering a church requires the Pastor's email (backend pastorEmail @NotBlank)
+    if (mode === 'create' && !email.trim()) {
+      setError('An email address is required to register a church.');
+      haptics.error();
+      return;
+    }
+    // Phone-only signup: the number becomes the login identifier and receives the
+    // SMS code, so it must normalize to E.164 (+233…)
+    let e164: string | undefined;
+    if (phone.trim()) {
+      const normalized = normalizeE164(phone);
+      if (!normalized && !email.trim()) {
+        setError('Enter your phone in international format, e.g. +233241234567 (or 024… for Ghana).');
+        haptics.error();
+        return;
+      }
+      e164 = normalized ?? undefined;
+    }
+    // Backend enforces @Size(min = 12) on every password field — 8 here let
+    // 8–11 char passwords through the client only to be rejected by the server.
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters.');
       haptics.error();
       return;
     }
@@ -90,9 +122,10 @@ export default function RegisterScreen() {
         await authApi.register({
           fullName: fullName.trim(),
           email: email.trim() || undefined,
-          phoneNumber: phone.trim() || undefined,
+          phoneNumber: e164,
           password,
           churchCode: churchCode.trim(),
+          phone: phone.trim() || undefined, // display number for the directory
         });
       } else {
         if (!denomination.trim()) {
@@ -109,12 +142,22 @@ export default function RegisterScreen() {
           pastorName: fullName.trim(),
           pastorEmail: email.trim(),
           pastorPassword: password,
+          pastorPhone: phone.trim() || undefined,
         });
       }
-      // Both register endpoints return { message } — tokens come from verify-email
       haptics.success();
-      // Pass email so verify screen can display and use it
-      router.replace(`/(auth)/verify?email=${encodeURIComponent(email.trim())}`);
+      // Route to the RIGHT verification: the backend sends the code to the email
+      // when one is given, otherwise by SMS to the E.164 phone. Sending a
+      // phone-only user to email verification was the "sent to that email I
+      // didn't provide" bug — verify-email can never succeed for them.
+      // Object-form params: expo-router handles the encoding. Passing "+233…"
+      // through a hand-built query string turned the "+" into a space on the
+      // verify screen, so every SMS code was checked against a wrong number.
+      if (email.trim()) {
+        router.replace({ pathname: '/(auth)/verify', params: { email: email.trim() } });
+      } else {
+        router.replace({ pathname: '/(auth)/verify', params: { phone: e164! } });
+      }
     } catch (e: any) {
       setError(e?.friendlyMessage ?? 'Registration failed. Please try again.');
       haptics.error();
@@ -166,18 +209,23 @@ export default function RegisterScreen() {
 
               <KlinkInput label="Full name" value={fullName} onChangeText={setFullName} autoComplete="name" />
               <KlinkInput
-                label="Email address"
+                label={mode === 'join' ? 'Email (optional if you give a phone)' : 'Email address'}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
               <KlinkInput
-                label="Phone number (+233...)"
+                label={mode === 'join' ? 'Phone (e.g. 024… or +233…)' : 'Phone number (optional)'}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
+              {mode === 'join' && !email.trim() && phone.trim() ? (
+                <Text style={styles.hintText}>
+                  You'll sign in with this number and receive your code by SMS.
+                </Text>
+              ) : null}
 
               {mode === 'join' ? (
                 <KlinkInput
@@ -268,6 +316,7 @@ const styles = StyleSheet.create({
   },
   showHide: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.medium },
   errorText: { color: Colors.red, fontSize: FontSize.small, textAlign: 'center' },
+  hintText: { color: 'rgba(255,255,255,0.55)', fontSize: FontSize.caption, marginTop: -4, marginBottom: 4 },
   backBtn: { alignItems: 'center', paddingVertical: Spacing.sm },
   backText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.medium },
 });

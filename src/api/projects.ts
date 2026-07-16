@@ -51,10 +51,16 @@ export interface Contribution {
   createdAt: string;
 }
 
+// Matches backend ContributionSummaryResponse exactly
 export interface ContributionSummary {
-  totalAmount: number;
+  targetAmount: number;
+  amountRaised: number;
+  fundingPercentage: number;
+  remainingAmount: number;
   contributorCount: number;
-  currency: string;
+  averageContribution: number | null;
+  largestContribution: number | null;
+  mostRecentContributionDate: string | null;
 }
 
 export interface ProjectUpdate {

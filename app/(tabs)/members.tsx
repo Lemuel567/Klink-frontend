@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -16,14 +16,21 @@ import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography'
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useDebounce } from '../../src/hooks/useDebounce';
+import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { LinearGradient } from 'expo-linear-gradient';
+
+// Leaders can register members WITHOUT smartphones (QR card + SMS, no app account)
+const CAN_REGISTER = ['PASTOR', 'ELDER', 'MANAGER'];
 
 export default function MembersScreen() {
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const role = useRole();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 400);
+
+  const canRegister = role ? CAN_REGISTER.includes(role) : false;
 
   const {
     data,
@@ -63,8 +70,22 @@ export default function MembersScreen() {
         overlayColor="#1A0533"
         style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
-        <Text style={styles.headerTitle}>Members</Text>
-        <Text style={styles.headerSub}>{data?.pages[0]?.totalElements ?? 0} members</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Members</Text>
+            <Text style={styles.headerSub}>{data?.pages[0]?.totalElements ?? 0} members</Text>
+          </View>
+          {canRegister && (
+            <TouchableOpacity
+              onPress={() => router.push('/members/register')}
+              style={styles.registerBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Register a member without a smartphone"
+            >
+              <Text style={styles.registerBtnText}>+ Register</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Search */}
         <View style={styles.searchWrap}>
@@ -140,6 +161,16 @@ const styles = StyleSheet.create({
     fontSize: FontSize.small,
     marginBottom: Spacing.sm,
   },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  registerBtn: {
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  registerBtnText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold },
   searchWrap: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: BorderRadius.full,

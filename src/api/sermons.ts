@@ -25,6 +25,8 @@ export const sermonsApi = {
   list: (params?: { page?: number; size?: number }) =>
     apiClient.get<SermonPage>('/sermons', { params }).then((r) => r.data),
 
+  get: (id: string) => apiClient.get<Sermon>(`/sermons/${id}`).then((r) => r.data),
+
   // Backend: multipart/form-data with @RequestPart fields; audio is an optional audio file
   create: (params: {
     preacher: string;

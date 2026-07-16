@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,6 +25,8 @@ import { TitheThermometer } from '../../src/components/church/TitheThermometer';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { SermonCardSkeleton } from '../../src/components/common/KlinkSkeleton';
 import { projectsApi } from '../../src/api/projects';
+import { membersApi, Member } from '../../src/api/members';
+import { useDebounce } from '../../src/hooks/useDebounce';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
@@ -61,11 +64,22 @@ export default function ProjectDetailScreen() {
   const canManage = role === 'PASTOR' || role === 'MANAGER';
   const isPastor = role === 'PASTOR';
   const canPost = role === 'PASTOR' || role === 'ELDER' || role === 'MANAGER';
+  // Contribution recording (cash/cheque/MoMo/transfer) is FinSec-only — backend rule
+  const isFinSec = role === 'FINANCIAL_SECRETARY';
 
   const [composing, setComposing] = useState(false);
   const [updTitle, setUpdTitle] = useState('');
   const [updContent, setUpdContent] = useState('');
   const [addingPhoto, setAddingPhoto] = useState(false);
+
+  // FinSec: record an offline contribution on behalf of a member
+  const [recording, setRecording] = useState(false);
+  const [contribMember, setContribMember] = useState<Member | null>(null);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [contribAmount, setContribAmount] = useState('');
+  const [contribMethod, setContribMethod] = useState('CASH');
+  const [contribNotes, setContribNotes] = useState('');
+  const debouncedSearch = useDebounce(memberSearch, 350);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', id],
@@ -89,6 +103,39 @@ export default function ProjectDetailScreen() {
     queryKey: ['project-images', id],
     queryFn: () => projectsApi.listImages(id!),
     enabled: !!id,
+  });
+
+  // Member search for the FinSec contribution recorder (min 2 chars, debounced)
+  const { data: memberResults } = useQuery({
+    queryKey: ['members', 'contrib-search', debouncedSearch],
+    queryFn: () => membersApi.list({ search: debouncedSearch, size: 8 }),
+    enabled: recording && !contribMember && debouncedSearch.length >= 2,
+  });
+
+  const { mutate: recordContribution, isPending: recordingContrib } = useMutation({
+    mutationFn: () =>
+      projectsApi.recordContribution(id!, {
+        memberId: contribMember!.id,
+        amount: parseFloat(contribAmount),
+        contributionDate: new Date().toISOString().split('T')[0],
+        paymentMethod: contribMethod,
+        notes: contribNotes.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      queryClient.invalidateQueries({ queryKey: ['project-summary', id] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      haptics.success();
+      setRecording(false);
+      setContribMember(null);
+      setMemberSearch('');
+      setContribAmount('');
+      setContribNotes('');
+    },
+    onError: (err: any) => {
+      haptics.error();
+      Alert.alert('Error', err?.friendlyMessage ?? 'Could not record the contribution.');
+    },
   });
 
   const { mutate: postUpdate, isPending: postingUpdate } = useMutation({
@@ -252,6 +299,13 @@ export default function ProjectDetailScreen() {
                   params: { projectId: project.id, projectTitle: project.title },
                 });
               }}
+            />
+          )}
+          {isFinSec && CONTRIBUTABLE.includes(project.status) && (
+            <KlinkButton
+              label="Record offline contribution"
+              variant="secondary"
+              onPress={() => { haptics.medium(); setRecording(true); }}
             />
           )}
         </LinearGradient>
@@ -440,6 +494,120 @@ export default function ProjectDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* FinSec: record-contribution modal (cash / cheque / MoMo / transfer) */}
+      <Modal visible={recording} transparent animationType="fade" onRequestClose={() => setRecording(false)}>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalCard}>
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, styles.modalGlass]} />
+            <Text style={styles.modalTitle}>Record contribution</Text>
+            <Text style={styles.modalSub}>The member is thanked with a notification when you save.</Text>
+
+            {/* Member picker — debounced church directory search */}
+            {contribMember ? (
+              <View style={styles.pickedMemberRow}>
+                <Text style={styles.pickedMemberName} numberOfLines={1}>{contribMember.fullName}</Text>
+                <TouchableOpacity
+                  onPress={() => { haptics.light(); setContribMember(null); setMemberSearch(''); }}
+                  style={styles.pickedMemberClear}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change member"
+                >
+                  <Text style={styles.pickedMemberClearText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View>
+                <TextInput
+                  value={memberSearch}
+                  onChangeText={setMemberSearch}
+                  placeholder="Search member by name or phone…"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  style={styles.memberSearchInput}
+                  selectionColor={Colors.gold}
+                  autoCapitalize="none"
+                />
+                {(memberResults?.content?.length ?? 0) > 0 && (
+                  <View style={styles.memberResults}>
+                    {memberResults!.content.map((m) => (
+                      <TouchableOpacity
+                        key={m.id}
+                        onPress={() => { haptics.light(); setContribMember(m); }}
+                        style={styles.memberResultRow}
+                        accessibilityRole="button"
+                        accessibilityLabel={m.fullName}
+                      >
+                        <Text style={styles.memberResultName} numberOfLines={1}>{m.fullName}</Text>
+                        {m.phone ? <Text style={styles.memberResultPhone}>{m.phone}</Text> : null}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Amount — label-above big input (no floating-label collision) */}
+            <Text style={styles.amountLabel}>AMOUNT (GHS)</Text>
+            <TextInput
+              value={contribAmount}
+              onChangeText={setContribAmount}
+              placeholder="0.00"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              style={styles.amountInput}
+              keyboardType="decimal-pad"
+              maxLength={12}
+              selectionColor={Colors.gold}
+            />
+
+            <Text style={styles.amountLabel}>PAYMENT METHOD</Text>
+            <View style={styles.methodRow}>
+              {['CASH', 'CHEQUE', 'MOBILE_MONEY', 'BANK_TRANSFER'].map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => { haptics.light(); setContribMethod(m); }}
+                  style={[styles.methodChip, contribMethod === m && styles.methodChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: contribMethod === m }}
+                >
+                  <Text style={[styles.methodChipText, contribMethod === m && styles.methodChipTextActive]}>
+                    {m.replace('_', ' ')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <KlinkInput
+              label="Notes (optional)"
+              value={contribNotes}
+              onChangeText={setContribNotes}
+              maxLength={1000}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => { haptics.light(); setRecording(false); }}
+                style={styles.modalCancel}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <KlinkButton
+                  label="Record"
+                  onPress={() => {
+                    const amt = parseFloat(contribAmount);
+                    if (contribMember && !isNaN(amt) && amt > 0) recordContribution();
+                  }}
+                  disabled={!contribMember || !(parseFloat(contribAmount) > 0) || recordingContrib}
+                  loading={recordingContrib}
+                />
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -540,4 +708,75 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   modalCancel: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.sm },
   modalCancelText: { color: Colors.darkMuted, fontSize: FontSize.body, fontWeight: FontWeight.medium },
+
+  // FinSec record-contribution modal
+  pickedMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(244,164,41,0.4)',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    minHeight: 52,
+  },
+  pickedMemberName: { color: Colors.white, fontSize: FontSize.body, fontWeight: FontWeight.semiBold, flex: 1 },
+  pickedMemberClear: { minHeight: 44, justifyContent: 'center', paddingLeft: Spacing.sm },
+  pickedMemberClearText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
+  memberSearchInput: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: FontSize.body,
+  },
+  memberResults: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.xs,
+    overflow: 'hidden',
+  },
+  memberResultRow: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  memberResultName: { color: Colors.white, fontSize: FontSize.small, fontWeight: FontWeight.medium },
+  memberResultPhone: { color: 'rgba(255,255,255,0.5)', fontSize: FontSize.caption, marginTop: 1 },
+  amountLabel: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: LetterSpacing.wider,
+    marginTop: Spacing.xs,
+  },
+  amountInput: {
+    borderWidth: 1,
+    borderColor: 'rgba(244,164,41,0.3)',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.bold,
+  },
+  methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  methodChip: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  methodChipActive: { borderColor: Colors.gold, backgroundColor: 'rgba(244,164,41,0.18)' },
+  methodChipText: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.caption, fontWeight: FontWeight.medium },
+  methodChipTextActive: { color: Colors.gold, fontWeight: FontWeight.semiBold },
 });

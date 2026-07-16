@@ -61,8 +61,9 @@ export default function ForgotPasswordScreen() {
       haptics.error();
       return;
     }
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.');
+    // Backend requires 12+ characters (ResetPasswordRequest @Size(min = 12))
+    if (newPassword.length < 12) {
+      setError('Password must be at least 12 characters.');
       haptics.error();
       return;
     }

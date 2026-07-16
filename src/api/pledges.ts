@@ -8,7 +8,7 @@ export interface Pledge {
   amount: number;
   amountPaid: number;
   paidAt?: string;
-  status: 'UNPAID' | 'PAID';
+  status: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
   recordedBy: string;
   createdAt: string;
 }

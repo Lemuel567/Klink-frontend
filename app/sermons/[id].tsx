@@ -33,7 +33,8 @@ export default function SermonDetailScreen() {
 
   const { data: sermon, isLoading } = useQuery({
     queryKey: ['sermon', id],
-    queryFn: () => sermonsApi.list({ size: 100 }).then((r) => r.content.find((s) => s.id === id)),
+    // Direct fetch — replaces the old list(100)+find hack that broke past 100 sermons
+    queryFn: () => sermonsApi.get(id!),
     enabled: !!id,
   });
 
