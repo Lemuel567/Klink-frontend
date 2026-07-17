@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { KlinkCard } from '../../src/components/common/KlinkCard';
@@ -25,12 +25,15 @@ interface FeedItem {
   timestamp: number;
   read: boolean;
   source: 'local' | 'announcement';
+  /** Backend id when source === 'announcement' (used to mark it read). */
+  announcementId?: string;
 }
 
 export default function NotificationsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
+  const queryClient = useQueryClient();
 
   const { notifications, unreadCount, markRead, markAllRead } = useNotificationStore();
 
@@ -58,11 +61,16 @@ export default function NotificationsScreen() {
       title: a.title,
       body: a.body,
       timestamp: new Date(a.createdAt).getTime(),
-      read: true, // announcements have no per-member read state yet (backend gap)
+      read: a.read, // real per-member read receipt from the backend
       source: 'announcement' as const,
+      announcementId: a.id,
     }));
     return [...local, ...fromAnnouncements].sort((x, y) => y.timestamp - x.timestamp);
   }, [notifications, myAnnouncements]);
+
+  // Combined unread = local push notifications + unread announcements
+  const unreadAnnouncements = (myAnnouncements?.content ?? []).filter((a) => !a.read).length;
+  const totalUnread = unreadCount + unreadAnnouncements;
 
   const handlePress = (item: FeedItem) => {
     haptics.light();
@@ -70,8 +78,23 @@ export default function NotificationsScreen() {
       markRead(item.id);
     }
     if (item.source === 'announcement') {
+      if (!item.read && item.announcementId) {
+        announcementsApi
+          .markRead(item.announcementId)
+          .then(() => queryClient.invalidateQueries({ queryKey: ['announcements-my-inbox'] }))
+          .catch(() => {});
+      }
       router.push('/announcements');
     }
+  };
+
+  const handleMarkAllRead = () => {
+    haptics.light();
+    markAllRead(); // local push notifications
+    announcementsApi
+      .markAllRead()
+      .then(() => queryClient.invalidateQueries({ queryKey: ['announcements-my-inbox'] }))
+      .catch(() => {});
   };
 
   return (
@@ -89,12 +112,12 @@ export default function NotificationsScreen() {
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>Notifications</Text>
             <Text style={styles.headerSub}>
-              {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
+              {totalUnread > 0 ? `${totalUnread} unread` : "You're all caught up"}
             </Text>
           </View>
-          {unreadCount > 0 && (
+          {totalUnread > 0 && (
             <TouchableOpacity
-              onPress={() => { haptics.light(); markAllRead(); }}
+              onPress={handleMarkAllRead}
               style={styles.markAllBtn}
               accessibilityRole="button"
               accessibilityLabel="Mark all notifications as read"

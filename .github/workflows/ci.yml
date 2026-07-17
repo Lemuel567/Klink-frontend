@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+# The app is mobile-only (no web build to run in CI). This gate type-checks the
+# whole project — the same `tsc --noEmit` used locally before every change.
+jobs:
+  typecheck:
+    name: Frontend — TypeScript type-check (Node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # .npmrc sets legacy-peer-deps=true — required, React 19 vs older peer ranges
+      # deadlocks the default resolver.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit

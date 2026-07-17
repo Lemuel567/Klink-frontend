@@ -24,6 +24,8 @@ export interface Announcement {
   targetMemberIds?: string[];
   isTargeted: boolean;
   recipientCount: number;
+  /** Whether the signed-in member has read this announcement (false in management views). */
+  read: boolean;
 }
 
 export interface AnnouncementPage {
@@ -100,6 +102,12 @@ export const announcementsApi = {
 
   // All active groups — for the target group selector (privileged roles only)
   groups: () => apiClient.get<GroupSummary[]>('/announcements/groups').then((r) => r.data),
+
+  // Mark one announcement read for the calling member (idempotent, 204)
+  markRead: (id: string) => apiClient.post(`/announcements/${id}/read`).then((r) => r.data),
+
+  // Mark every visible announcement read (204)
+  markAllRead: () => apiClient.post('/announcements/read-all').then((r) => r.data),
 
   delete: (id: string) => apiClient.delete(`/announcements/${id}`).then((r) => r.data),
 };
