@@ -87,6 +87,27 @@ export const Shadows = {
   },
 } as const;
 
+/**
+ * Glow presets (2026-07-18, additive) — theme-independent accent glows.
+ * Use on gold CTAs and other luminous accents; pairs with Colors.goldGlow.
+ */
+export const Glow = {
+  gold: {
+    shadowColor: '#F4A429',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  goldSoft: {
+    shadowColor: '#F4A429',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+} as const;
+
 export const ZIndex = {
   base: 0,
   card: 10,

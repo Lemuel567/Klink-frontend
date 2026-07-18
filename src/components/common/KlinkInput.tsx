@@ -206,7 +206,9 @@ const styles = StyleSheet.create({
   container: { marginBottom: Spacing.md },
   inputWrapper: {
     borderWidth: 1,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    // Glass fill — the field reads as a surface, not a hollow outline
+    backgroundColor: 'rgba(30,19,64,0.45)',
     paddingHorizontal: Spacing.md,
     paddingTop: 22,
     paddingBottom: 10,

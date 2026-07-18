@@ -6,10 +6,14 @@ import Animated from 'react-native-reanimated';
 import { LightBeam } from '../animations/LightBeam';
 import { RotatingBackground } from '../common/RotatingBackground';
 import { Colors, Gradients } from '../../theme/colors';
-import { FontSize, FontWeight, LetterSpacing } from '../../theme/typography';
+import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 
 const { width, height } = Dimensions.get('window');
+
+// Manual date formatting — avoids Intl edge cases on Hermes
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 interface Props {
   title: string;
@@ -94,6 +98,7 @@ export function WorshipHero({
 
       <View style={styles.content}>
         {children}
+        <Text style={styles.dateEyebrow}>{dateLabel()}</Text>
         <Text style={styles.title}>{title}</Text>
         {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       </View>
@@ -121,18 +126,32 @@ const styles = StyleSheet.create({
     bottom: 40,
     opacity: 0.4,
   },
+  // Editorial masthead voice (2026-07-18): tracked date eyebrow over an
+  // oversized serif greeting with an italic serif deck beneath.
+  dateEyebrow: {
+    color: 'rgba(245,240,255,0.7)',
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
   title: {
     color: Colors.white,
+    fontFamily: FontFamily.displayBold,
     fontSize: FontSize.h1,
-    fontWeight: FontWeight.bold,
     letterSpacing: LetterSpacing.tight,
-    lineHeight: FontSize.h1 * 1.15,
+    lineHeight: FontSize.h1 * 1.2,
   },
   subtitle: {
     color: Colors.gold,
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.medium,
-    marginTop: 4,
-    letterSpacing: LetterSpacing.wide,
+    fontFamily: FontFamily.displayItalic,
+    fontSize: 17,
+    marginTop: 6,
   },
 });
+
+function dateLabel(): string {
+  const now = new Date();
+  return `${WEEKDAYS[now.getDay()]} · ${now.getDate()} ${MONTHS[now.getMonth()]}`;
+}

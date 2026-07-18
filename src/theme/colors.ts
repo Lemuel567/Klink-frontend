@@ -64,6 +64,10 @@ export const Colors = {
   spotlightWhite: '#FAFAFA', // spotlights (worship-hands-2)
   stageRed: '#8B1A1A',       // red stage accents (crowd-1)
   warmCream: '#FDF3E3',      // warm skin/cream tones (worship-solo-1)
+
+  // Editorial refinements (2026-07-18) — additive
+  hairline: 'rgba(255,255,255,0.06)',   // quietest possible divider on glass
+  goldGlow: 'rgba(244,164,41,0.45)',    // shadow color for glowing gold CTAs
 } as const;
 
 export const Gradients = {

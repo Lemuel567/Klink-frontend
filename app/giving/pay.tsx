@@ -33,6 +33,20 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // Premium giving-type cards — each with its own gradient, icon, and one-line
 // label/sub (100×120, horizontal snap scroll with a peek of the next card).
+// Photo-backed type cards (2026-07-18): each giving type carries a real worship
+// photo under a dark scrim — same design language as the church-hub tiles.
+import { Image as ExpoImage } from 'expo-image';
+import { WorshipImages } from '../../src/utils/worshipImages';
+
+const TYPE_PHOTOS: Record<string, any> = {
+  TITHE: WorshipImages.worshipSolo1,
+  OFFERING: WorshipImages.congregation1,
+  WELFARE: WorshipImages.prayer1,
+  SPECIAL_CONTRIBUTION: WorshipImages.worshipHands4,
+  BUILDING_FUND: WorshipImages.churchInterior1,
+  MISSIONS: WorshipImages.praiseNature1,
+};
+
 const GIVE_TYPES: {
   key: OnlinePaymentType;
   label: string;
@@ -74,7 +88,7 @@ const GIVE_TYPES: {
   },
 ];
 
-const TYPE_CARD_W = 100;
+const TYPE_CARD_W = 150;
 const TYPE_CARD_GAP = 10;
 
 const MIN_AMOUNT = 1;
@@ -299,15 +313,23 @@ export default function PayScreen() {
                             selectedType && styles.typeCardSelectedGlow,
                           ]}
                         >
-                          <LinearGradient
-                            colors={t.gradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
+                          <View
                             style={[
                               styles.typeCard,
+                              { overflow: 'hidden' },
                               selectedType && styles.typeCardSelected,
                             ]}
                           >
+                            <ExpoImage
+                              source={TYPE_PHOTOS[t.key]}
+                              style={StyleSheet.absoluteFill}
+                              contentFit="cover"
+                              cachePolicy="memory-disk"
+                            />
+                            <LinearGradient
+                              colors={['rgba(10,5,32,0.15)', 'rgba(10,5,32,0.5)', 'rgba(10,5,32,0.88)']}
+                              style={StyleSheet.absoluteFill}
+                            />
                             <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
                               <Path
                                 d={t.icon}
@@ -319,7 +341,7 @@ export default function PayScreen() {
                             </Svg>
                             <Text style={styles.typeLabel} numberOfLines={1}>{t.label}</Text>
                             <Text style={styles.typeDesc} numberOfLines={1}>{t.sub}</Text>
-                          </LinearGradient>
+                          </View>
                         </TouchableOpacity>
                       );
                     })}
@@ -471,7 +493,7 @@ const styles = StyleSheet.create({
   },
   typeCard: {
     width: TYPE_CARD_W,
-    height: 120,
+    height: 156,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',

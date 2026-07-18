@@ -30,7 +30,14 @@ export function GlassCard({ children, variant = 'light', style, intensity, padde
       <View
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: v.bg, borderWidth: 1, borderColor: v.border, borderRadius: BorderRadius.xl },
+          {
+            backgroundColor: v.bg,
+            borderWidth: 1,
+            borderColor: v.border,
+            // Light falls from above — lighter top edge is the glass signature.
+            borderTopColor: 'rgba(255,255,255,0.32)',
+            borderRadius: BorderRadius.xl,
+          },
         ]}
       />
       {children}

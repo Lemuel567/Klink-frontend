@@ -4,9 +4,12 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import { WorshipPhotoArray } from '../../utils/worshipImages';
@@ -48,6 +51,24 @@ export function RotatingBackground({
   const [nextIndex, setNextIndex] = useState(1 % Math.max(photos.length, 1));
   const topOpacity = useSharedValue(0);
   const animating = useRef(false);
+  const reducedMotion = useReducedMotion();
+
+  // Ambient Ken Burns "breath" (2026-07-18): both photo layers share one slow
+  // scale (1 → 1.05 over 12s, sine, reversing forever) so the image gently
+  // drifts like a living scene. The crossfade is untouched — the layers scale
+  // together, so swaps stay seamless. Children/overlay are NOT scaled.
+  const breathScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    breathScale.value = withRepeat(
+      withTiming(1.05, { duration: 12000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(breathScale);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reducedMotion]);
 
   // After the fade completes, promote the top photo to the base layer and
   // preload the following one into the (now invisible) top layer.
@@ -82,23 +103,28 @@ export function RotatingBackground({
   nextIndexRef.current = nextIndex;
 
   const topStyle = useAnimatedStyle(() => ({ opacity: topOpacity.value }));
+  const breathStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breathScale.value }],
+  }));
 
   return (
     <View style={[styles.container, style]}>
-      <Image
-        source={photos[baseIndex]}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-        transition={0}
-      />
-      <AnimatedImage
-        source={photos[nextIndex]}
-        style={[StyleSheet.absoluteFill, topStyle]}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-        transition={0}
-      />
+      <Animated.View style={[StyleSheet.absoluteFill, breathStyle]}>
+        <Image
+          source={photos[baseIndex]}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={0}
+        />
+        <AnimatedImage
+          source={photos[nextIndex]}
+          style={[StyleSheet.absoluteFill, topStyle]}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={0}
+        />
+      </Animated.View>
       <LinearGradient colors={overlayColors} style={StyleSheet.absoluteFill} />
       {children}
     </View>

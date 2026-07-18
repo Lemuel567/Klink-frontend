@@ -48,6 +48,12 @@ export function KlinkCard({ children, variant = 'default', style, onPress, padde
     padded && styles.padded,
     variant === 'default' && {
       backgroundColor: theme.card,
+      // Locked identity: glass cards carry a gold hairline (theme.cardBorder),
+      // with a lighter TOP edge — light falls from above (award-glass signature).
+      // Declared before `style` so callers can still override it.
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      borderTopColor: 'rgba(255,255,255,0.22)',
       ...(isDark ? Shadows.dark.card : Shadows.light.card),
     },
     style,
@@ -156,6 +162,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
+    borderTopColor: 'rgba(255,255,255,0.35)', // light edge — light from above
     backgroundColor: Colors.glassLight,
   },
   glassCard: {

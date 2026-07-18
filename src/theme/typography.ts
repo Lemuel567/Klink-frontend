@@ -112,4 +112,29 @@ export const TextStyles = {
     fontWeight: FontWeight.semiBold,
     letterSpacing: LetterSpacing.wide,
   },
+
+  // ── Editorial refinements (2026-07-18) — additive tokens only ────────────
+  // Quiet tracked-out section label ("EYEBROW") — the premium-editorial pattern:
+  // small, uppercase, widely letter-spaced, sitting above a heading or section.
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: LetterSpacing.widest,
+    lineHeight: 11 * LineHeight.snug,
+    textTransform: 'uppercase' as const,
+  },
+  // Serif display tokens with the font family baked in, so screens can adopt
+  // the Playfair display voice without hand-assembling it each time.
+  displayHero: {
+    fontFamily: FontFamily.displayBold,
+    fontSize: FontSize.h1,
+    letterSpacing: LetterSpacing.tight,
+    lineHeight: FontSize.h1 * LineHeight.tight,
+  },
+  displayTitle: {
+    fontFamily: FontFamily.displayBold,
+    fontSize: FontSize.h3,
+    letterSpacing: LetterSpacing.normal,
+    lineHeight: FontSize.h3 * LineHeight.snug,
+  },
 } as const;
