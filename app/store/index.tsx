@@ -220,6 +220,16 @@ export default function StoreScreen() {
     },
   });
 
+  // Every photo of the item being bought — single-photo items previously showed
+  // no image at all (the strip only rendered when photoUrls.length > 1).
+  const buyPhotos: string[] = buying
+    ? buying.photoUrls?.length
+      ? buying.photoUrls
+      : buying.photoUrl
+        ? [buying.photoUrl]
+        : []
+    : [];
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header — rotating worship photos like every screen */}
@@ -412,9 +422,9 @@ export default function StoreScreen() {
             <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
             <View style={[StyleSheet.absoluteFill, styles.modalGlass]} />
             {/* All pictures of the item */}
-            {(buying?.photoUrls?.length ?? 0) > 1 && (
+            {buyPhotos.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
-                {buying!.photoUrls!.map((url) => (
+                {buyPhotos.map((url) => (
                   <ExpoImage key={url} source={{ uri: url }} style={styles.buyPhoto} contentFit="cover" />
                 ))}
               </ScrollView>

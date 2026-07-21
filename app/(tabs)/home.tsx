@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Dimensions,
   RefreshControl,
@@ -45,11 +45,14 @@ import { projectsApi, Project } from '../../src/api/projects';
 import { givingApi } from '../../src/api/giving';
 import { devotionalsApi } from '../../src/api/devotionals';
 import { attendanceApi } from '../../src/api/attendance';
+import { pledgesApi } from '../../src/api/pledges';
 import { formatCurrency } from '../../src/utils/formatters';
 import { useParallax } from '../../src/hooks/useParallax';
 import { useAuthStore, useUser, useRole } from '../../src/store/authStore';
 import { Colors, Gradients } from '../../src/theme/colors';
-import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
+import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
+import { Image as QAImage } from 'expo-image';
+import { WorshipImages as QAPhotos } from '../../src/utils/worshipImages';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
@@ -74,7 +77,7 @@ export default function HomeScreen() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const { data: announcements, isLoading: loadingAnn, isRefetching: refetchingAnn, refetch: refetchAnn } =
+  const { data: announcements, isLoading: loadingAnn, refetch: refetchAnn } =
     useQuery({ queryKey: ['announcements'], queryFn: () => announcementsApi.list({ size: 5 }) });
 
   const { data: sermons, isLoading: loadingSermons, refetch: refetchSermons } =
@@ -100,21 +103,35 @@ export default function HomeScreen() {
     ? { verse: latestDevotional.content, reference: latestDevotional.title }
     : DAILY_VERSE;
 
+  // Member's own pledges — totalElements only, size 1 keeps it cheap
+  const { data: myPledges, refetch: refetchPledges } =
+    useQuery({ queryKey: ['pledges', 'home-count'], queryFn: () => pledgesApi.getMe({ size: 1 }) });
+
   // Member's own attendance — count of services marked PRESENT
   const { data: myAttendance, refetch: refetchAttendance } =
     useQuery({ queryKey: ['attendance-me-summary'], queryFn: () => attendanceApi.getMe({ size: 100 }) });
   const presentCount =
     myAttendance?.content?.filter((r: { status: string }) => r.status === 'PRESENT').length ?? 0;
 
-  const isRefreshing = refetchingAnn;
-  const handleRefresh = useCallback(() => {
-    refetchAnn();
-    refetchSermons();
-    refetchEvents();
-    refetchProjects();
-    refetchGiving();
-    refetchDevotionals();
-    refetchAttendance();
+  // The spinner used to track only the announcements query and vanished while
+  // the other seven feeds were still refetching.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchAnn(),
+        refetchSermons(),
+        refetchEvents(),
+        refetchProjects(),
+        refetchGiving(),
+        refetchDevotionals(),
+        refetchAttendance(),
+        refetchPledges(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
 
   return (
@@ -152,7 +169,7 @@ export default function HomeScreen() {
           <View style={{ paddingTop: insets.top + 16 }} />
         </WorshipHero>
 
-        {/* Daily verse */}
+        {/* Daily verse — FIRST, straight under the hero */}
         <ScrollReveal delay={0}>
           <View style={[styles.section, { backgroundColor: theme.surface }]}>
             <View style={styles.sectionHeader}>
@@ -169,13 +186,18 @@ export default function HomeScreen() {
           </View>
         </ScrollReveal>
 
-        {/* Bento grid stats */}
+        {/* Quick access — big photo tiles, 2 per row (church-hub structure) */}
+        <ScrollReveal delay={0}>
+          <QuickActions />
+        </ScrollReveal>
+
+        {/* Bento grid stats — each card is a shortcut to the member's own records */}
         <ScrollReveal delay={100}>
           <View style={styles.bentoGrid}>
-            <StatCard label="My attendance" count={presentCount} sub="services present" color={Colors.blue} delay={0} />
-            <StatCard label="Your giving" value={formatCurrency(myGivingTotal)} sub="recorded total" color={Colors.green} delay={80} />
-            <StatCard label="Upcoming" count={events?.content?.length ?? 0} sub="events" color={Colors.gold} delay={160} />
-            <StatCard label="Active projects" count={projects?.content?.length ?? 0} sub="fundraising" color={Colors.roseGold} delay={240} />
+            <StatCard label="My attendance" count={presentCount} sub="services present" color={Colors.blue} delay={0} onPress={() => router.push('/attendance')} />
+            <StatCard label="Your giving" value={formatCurrency(myGivingTotal)} sub="recorded total" color={Colors.green} delay={80} onPress={() => router.push('/giving/history')} />
+            <StatCard label="My pledges" count={myPledges?.totalElements ?? 0} sub="promises made" color={Colors.gold} delay={160} onPress={() => router.push('/pledges')} />
+            <StatCard label="Active projects" count={projects?.totalElements ?? projects?.content?.length ?? 0} sub="fundraising" color={Colors.roseGold} delay={240} onPress={() => router.push('/projects')} />
           </View>
         </ScrollReveal>
 
@@ -264,23 +286,25 @@ export default function HomeScreen() {
             )}
         </View>
       </Animated.ScrollView>
-
-      {/* Quick action FAB row */}
-      <QuickActions insets={insets} />
     </View>
   );
 }
 
 function SectionHeader({ label, onSeeAll }: { label: string; onSeeAll?: () => void }) {
   const { theme } = useTheme();
+  // Editorial header: serif title + tracked micro-link, underlined by a gold
+  // hairline rule (honest visible structure — brutalist/awwwards direction).
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>{label}</Text>
-      {onSeeAll && (
-        <TouchableOpacity onPress={onSeeAll} accessibilityRole="link">
-          <Text style={styles.seeAll}>See all</Text>
-        </TouchableOpacity>
-      )}
+    <View style={styles.sectionHeadWrap}>
+      <View style={[styles.sectionHeader, { marginBottom: 0, paddingHorizontal: 0 }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>{label}</Text>
+        {onSeeAll && (
+          <TouchableOpacity onPress={onSeeAll} accessibilityRole="link">
+            <Text style={styles.seeAll}>See all</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <View style={styles.sectionRule} />
     </View>
   );
 }
@@ -292,6 +316,7 @@ function StatCard({
   sub,
   color,
   delay,
+  onPress,
 }: {
   label: string;
   value?: string;
@@ -300,26 +325,42 @@ function StatCard({
   sub: string;
   color: string;
   delay: number;
+  /** Tapping a stat opens the member's own record — no digging through Profile. */
+  onPress?: () => void;
 }) {
   const { theme } = useTheme();
+  const haptics = useHaptics();
   return (
     <ScrollReveal delay={delay} style={styles.statCard}>
-      <View style={[styles.statAccent, { backgroundColor: `${color}25` }]}>
-        {count !== undefined ? (
-          <CountUp value={count} style={[styles.statValue, { color }]} />
-        ) : (
-          <Text style={[styles.statValue, { color }]}>{value}</Text>
-        )}
-      </View>
-      <Text style={[styles.statLabel, { color: theme.text }]}>{label}</Text>
-      <Text style={[styles.statSub, { color: theme.textMuted }]}>{sub}</Text>
+      <TouchableOpacity
+        activeOpacity={onPress ? 0.75 : 1}
+        onPress={onPress ? () => { haptics.light(); onPress(); } : undefined}
+        disabled={!onPress}
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={onPress ? `${label} — open` : label}
+        style={styles.statInner}
+      >
+        <View style={styles.statTopRow}>
+          <View style={[styles.statAccent, { backgroundColor: `${color}25` }]}>
+            {count !== undefined ? (
+              <CountUp value={count} style={[styles.statValue, { color }]} />
+            ) : (
+              <Text style={[styles.statValue, { color }]}>{value}</Text>
+            )}
+          </View>
+          {onPress && <Text style={[styles.statChevron, { color: theme.textMuted }]}>›</Text>}
+        </View>
+        <Text style={[styles.statLabel, { color: theme.text }]}>{label}</Text>
+        <Text style={[styles.statSub, { color: theme.textMuted }]}>{sub}</Text>
+      </TouchableOpacity>
     </ScrollReveal>
   );
 }
 
 // ─── Premium 3D quick actions ────────────────────────────────────────────────
-// 72×72 gradient tiles with SVG icons, floating idle bob (staggered wave),
-// spring press-scale, gradient-matched shadows, and medium haptics.
+// In-flow 4×2 grid of gradient tiles with SVG stroke icons, floating idle bob
+// (staggered wave), spring press-scale, gradient-matched shadows, and medium
+// haptics. Every major feature is one tap from Home — nothing hides in Profile.
 
 const QUICK_ACTIONS: {
   label: string;
@@ -346,10 +387,34 @@ const QUICK_ACTIONS: {
     route: '/prayer',
   },
   {
-    label: 'Contact',
+    label: 'Groups',
     gradient: ['#085041', '#1D9E75'],
-    icon: 'M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.4-.7L3 21l1.8-5.6A8.38 8.38 0 0 1 3.6 11.5a8.5 8.5 0 0 1 8.4-8.4 8.38 8.38 0 0 1 9 8.4z',
-    route: '/church/settings',
+    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+    route: '/groups',
+  },
+  {
+    label: 'Events',
+    gradient: ['#4A1528', '#C9797A'],
+    icon: 'M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z M16 2v4 M8 2v4 M3 10h18',
+    route: '/events',
+  },
+  {
+    label: 'Sermons',
+    gradient: ['#412402', '#854F0B'],
+    icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+    route: '/sermons',
+  },
+  {
+    label: 'Polls',
+    gradient: ['#0C447C', '#185FA5'],
+    icon: 'M12 20V10 M18 20V4 M6 20v-4',
+    route: '/polls',
+  },
+  {
+    label: 'Store',
+    gradient: ['#7A3803', '#E8760A'],
+    icon: 'M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0',
+    route: '/store',
   },
 ];
 
@@ -364,10 +429,10 @@ function QuickActionButton({
   const scale = useSharedValue(1);
   const bob = useSharedValue(0);
 
-  // Idle floating bob — each button offset by 300ms creating a gentle wave
+  // Idle floating bob — 150ms offset per tile so the 8-tile wave stays gentle
   React.useEffect(() => {
     bob.value = withDelay(
-      index * 300,
+      index * 150,
       withRepeat(
         withTiming(-3, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
         -1,
@@ -392,12 +457,17 @@ function QuickActionButton({
         accessibilityLabel={action.label}
         style={[styles.qaShadow, { shadowColor: action.gradient[0] }]}
       >
-        <LinearGradient
-          colors={action.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.qaTile}
-        >
+        <View style={[styles.qaTile, { overflow: 'hidden' }]}>
+          <QAImage
+            source={QA_PHOTO_MAP[action.label] ?? QAPhotos.congregation1}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+          <LinearGradient
+            colors={['rgba(10,5,32,0.2)', 'rgba(10,5,32,0.5)', 'rgba(10,5,32,0.85)']}
+            style={StyleSheet.absoluteFill}
+          />
           <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
             <Path
               d={action.icon}
@@ -410,15 +480,27 @@ function QuickActionButton({
           <Text style={styles.qaLabel} numberOfLines={1}>
             {action.label}
           </Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
-function QuickActions({ insets }: { insets: any }) {
+// Real worship photo behind each quick-action tile (church-hub design language)
+const QA_PHOTO_MAP: Record<string, any> = {
+  'Check In': QAPhotos.congregation2,
+  Give: QAPhotos.worshipSolo1,
+  Prayer: QAPhotos.prayer1,
+  Groups: QAPhotos.congregation4,
+  Events: QAPhotos.sanctuaryBlue1,
+  Sermons: QAPhotos.worshipLeader1,
+  Polls: QAPhotos.crowd2,
+  Store: QAPhotos.singerTeal1,
+};
+
+function QuickActions() {
   return (
-    <View style={[styles.fabRow, { paddingBottom: insets.bottom + 80 }]}>
+    <View style={styles.qaGrid}>
       {QUICK_ACTIONS.map((a, i) => (
         <QuickActionButton key={a.label} action={a} index={i} />
       ))}
@@ -453,18 +535,34 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionTitle: {
+    // Serif display voice (login-page identity) carried into section titles.
+    // No fontWeight alongside a named weight-specific family (Android quirk).
+    fontFamily: FontFamily.displayBold,
     fontSize: FontSize.h4,
-    fontWeight: FontWeight.bold,
   },
   seeAll: {
+    // Tracked uppercase micro-link (awwwards-style editorial label)
     color: Colors.gold,
-    fontSize: FontSize.small,
-    fontWeight: FontWeight.medium,
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  sectionHeadWrap: {
+    paddingHorizontal: Spacing.pagePadding,
+    marginBottom: Spacing.md,
+    gap: 10,
+  },
+  sectionRule: {
+    height: 1,
+    backgroundColor: 'rgba(244,164,41,0.18)',
   },
   sectionLabel: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.bold,
+    // Editorial eyebrow — quieter, more tracked (TextStyles.eyebrow pattern)
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
     letterSpacing: LetterSpacing.widest,
+    textTransform: 'uppercase',
     marginBottom: Spacing.sm,
   },
   bentoGrid: {
@@ -477,11 +575,16 @@ const styles = StyleSheet.create({
   statCard: {
     width: '47.5%',
     borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    gap: 4,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+  },
+  statInner: { padding: Spacing.md, gap: 4 },
+  statTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   statAccent: {
     width: 44,
@@ -491,18 +594,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
+  statChevron: { fontSize: 22, lineHeight: 24 },
   statValue: { fontSize: FontSize.h2, fontWeight: FontWeight.bold },
   statLabel: { fontSize: FontSize.small, fontWeight: FontWeight.medium },
   statSub: { fontSize: FontSize.caption },
-  fabRow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  // In-flow quick-access grid: 4 tiles per row × 2 rows, right under the hero
+  qaGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.md,
+    paddingHorizontal: Spacing.pagePadding,
+    paddingTop: Spacing.lg,
   },
   // Floating 3D shadow — colour is set per-button to match its gradient
   qaShadow: {
@@ -511,20 +614,24 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
     borderRadius: 20,
+    width: '48.5%', // 2 per row — big photo tiles (matches the church hub grid)
   },
   qaTile: {
-    width: 72,
-    height: 72,
+    width: '100%',
+    height: 128,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    // Church-hub structure: content sits bottom-left over the photo
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    padding: 12,
     gap: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(244,164,41,0.25)',
+    borderTopColor: 'rgba(255,255,255,0.28)',
   },
   qaLabel: {
     color: Colors.white,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: FontWeight.semiBold,
     letterSpacing: 0.2,
   },

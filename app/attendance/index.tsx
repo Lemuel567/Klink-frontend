@@ -94,6 +94,7 @@ export default function AttendanceScreen() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance-all'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-me'] });
       haptics.success();
       setMarking(false);
       setSelectedMember(null);

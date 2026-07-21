@@ -54,6 +54,14 @@ export default function AnnouncementsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient colors={Gradients.worship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backIcon}>‹</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Announcements</Text>
         <Text style={styles.headerSub}>Stay up to date with your church</Text>
 
@@ -130,6 +138,8 @@ export default function AnnouncementsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: Spacing.pagePadding, paddingBottom: Spacing.sm, gap: 4 },
+  backBtn: { alignSelf: 'flex-start', width: 44, height: 44, justifyContent: 'center' },
+  backIcon: { color: Colors.white, fontSize: 32, lineHeight: 34 },
   headerTitle: { color: Colors.white, fontSize: FontSize.h2, fontWeight: FontWeight.bold },
   headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: FontSize.small },
   tabBar: {

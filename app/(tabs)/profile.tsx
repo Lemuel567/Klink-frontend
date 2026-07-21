@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Dimensions, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +39,14 @@ export default function ProfileScreen() {
   const { data: myPayments } = useQuery({
     queryKey: ['myPayments'],
     queryFn: () => givingApi.getMyPayments({ size: 100 }),
+  });
+
+  // Full member record: fills createdAt ("Member since") plus email/photo for
+  // sessions stored before AuthResponse carried those fields.
+  const { data: myRecord } = useQuery({
+    queryKey: ['member', user?.id],
+    queryFn: () => membersApi.get(user!.id),
+    enabled: !!user?.id,
   });
 
   // Church code — leadership needs it to invite new members
@@ -94,12 +102,65 @@ export default function ProfileScreen() {
     });
   };
 
-  const totalGiven = myPayments?.content?.reduce((s: number, p: { amount: number }) => s + p.amount, 0) ?? 0;
+  // "Given this year" previously summed ALL records under a yearly label.
+  const currentYear = String(new Date().getFullYear());
+  const totalGiven =
+    myPayments?.content
+      ?.filter((p: { paymentDate?: string }) => (p.paymentDate ?? '').startsWith(currentYear))
+      .reduce((s: number, p: { amount: number }) => s + p.amount, 0) ?? 0;
 
-  const handleLogout = useCallback(async () => {
-    haptics.heavy();
-    await logout();
-    router.replace('/(auth)/login');
+  // Signing out is easy to hit by accident at the bottom of a scroll — confirm first
+  const handleLogout = useCallback(() => {
+    haptics.medium();
+    Alert.alert('Sign out?', 'You can sign back in any time.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          haptics.heavy();
+          await logout();
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
+  }, []);
+
+  // A member removes THEMSELVES from the church — destructive and double-confirmed.
+  // Backend deactivates the account and kills every session; leadership can
+  // reactivate them if they ever return.
+  const handleLeaveChurch = useCallback(() => {
+    haptics.medium();
+    Alert.alert(
+      'Leave this church?',
+      'Your account will be deactivated and you will lose access immediately. Church leadership can restore you if you return.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert('Are you sure?', 'This signs you out of every device.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Leave church',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await membersApi.leaveChurch();
+                    haptics.success();
+                    await logout();
+                    router.replace('/(auth)/login');
+                  } catch (e: any) {
+                    haptics.error();
+                    Alert.alert('Could not leave', e?.friendlyMessage ?? 'Please try again.');
+                  }
+                },
+              },
+            ]),
+        },
+      ],
+    );
   }, []);
 
   // Role glow mapping
@@ -133,7 +194,7 @@ export default function ProfileScreen() {
         <View style={[styles.heroContent, { paddingTop: insets.top + 16 }]}>
           <KlinkAvatar
             name={user?.fullName ?? ''}
-            photoUrl={user?.photoUrl}
+            photoUrl={user?.photoUrl ?? myRecord?.photoUrl}
             size={96}
             style={glow ? { shadowColor: glow, shadowOpacity: 0.6, shadowRadius: 20, elevation: 12 } : undefined}
           />
@@ -141,8 +202,8 @@ export default function ProfileScreen() {
             {user?.fullName}
           </Text>
           {user?.role && <RoleBadge role={user.role} />}
-          {user?.email && (
-            <Text style={styles.email} numberOfLines={1}>{user.email}</Text>
+          {(user?.email ?? myRecord?.email) && (
+            <Text style={styles.email} numberOfLines={1}>{user?.email ?? myRecord?.email}</Text>
           )}
         </View>
       </View>
@@ -150,7 +211,10 @@ export default function ProfileScreen() {
       {/* Stats row */}
       <ScrollReveal delay={0}>
         <View style={styles.statsRow}>
-          <StatItem label="Member since" value="—" />
+          <StatItem
+            label="Member since"
+            value={myRecord?.createdAt ? formatDate(myRecord.createdAt) : '—'}
+          />
           <View style={styles.statDivider} />
           <StatItem label="Given this year" value={formatCurrency(totalGiven)} highlight />
           <View style={styles.statDivider} />
@@ -204,16 +268,13 @@ export default function ProfileScreen() {
         </ScrollReveal>
       )}
 
-      {/* Menu items */}
+      {/* Account menu — features moved OUT of Profile (2026-07-16 IA overhaul):
+          personal records live on the Home stat cards, church features on the
+          Home quick grid and the Church tab grid. Profile is account-only. */}
       <ScrollReveal delay={100}>
         <View style={[styles.section, { backgroundColor: theme.card }]}>
           <MenuItem label="Edit profile" onPress={() => router.push('/profile/edit')} theme={theme} />
-          <MenuItem label="My attendance" onPress={() => router.push('/attendance')} theme={theme} />
-          <MenuItem label="Giving history" onPress={() => router.push('/giving/history')} theme={theme} />
-          <MenuItem label="Church projects" onPress={() => router.push('/projects')} theme={theme} />
-          <MenuItem label="Prayer wall" onPress={() => router.push('/prayer')} theme={theme} />
-          <MenuItem label="Daily devotional" onPress={() => router.push('/devotional')} theme={theme} />
-          <MenuItem label="Groups" onPress={() => router.push('/groups')} theme={theme} />
+          <MenuItem label="Change password" onPress={() => router.push('/profile/change-password')} theme={theme} />
           <MenuItem label="Church settings" onPress={() => router.push('/church/settings')} theme={theme} />
         </View>
       </ScrollReveal>
@@ -256,6 +317,14 @@ export default function ProfileScreen() {
       <ScrollReveal delay={300}>
         <View style={styles.logoutWrap}>
           <KlinkButton label="Sign out" variant="danger" onPress={handleLogout} />
+          <TouchableOpacity
+            onPress={handleLeaveChurch}
+            style={styles.leaveChurchBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Leave this church"
+          >
+            <Text style={styles.leaveChurchText}>Leave this church</Text>
+          </TouchableOpacity>
         </View>
       </ScrollReveal>
     </ScrollView>
@@ -409,7 +478,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     minHeight: 52,
   },
-  logoutWrap: { paddingHorizontal: Spacing.pagePadding, marginTop: Spacing.md },
+  logoutWrap: { paddingHorizontal: Spacing.pagePadding, marginTop: Spacing.md, gap: Spacing.sm },
+  leaveChurchBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  leaveChurchText: {
+    color: 'rgba(220,38,38,0.85)',
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semiBold,
+    textDecorationLine: 'underline',
+  },
   musicLabelWrap: {
     flexDirection: 'row',
     alignItems: 'center',

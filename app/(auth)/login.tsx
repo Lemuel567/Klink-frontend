@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
+import { AmbientGlow } from '../../src/components/animations/AmbientGlow';
 import { FloatingElement } from '../../src/components/animations/FloatingElement';
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
@@ -23,12 +24,21 @@ import { authApi } from '../../src/api/auth';
 import { useAuthStore } from '../../src/store/authStore';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { Colors, Gradients } from '../../src/theme/colors';
-import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
+import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 
 const { width, height } = Dimensions.get('window');
 
 type LoginMethod = 'email' | 'phone';
+
+// Phone login must send the stored E.164 identifier — accept "+233…" as-is
+// and convert Ghana local "024…" so members can type the number they know.
+function normalizeE164(raw: string): string | null {
+  const p = raw.replace(/[\s\-()]/g, '');
+  if (/^\+[1-9]\d{6,14}$/.test(p)) return p;
+  if (/^0\d{9}$/.test(p)) return `+233${p.slice(1)}`;
+  return null;
+}
 
 export default function LoginScreen() {
   const [method, setMethod] = useState<LoginMethod>('email');
@@ -53,11 +63,21 @@ export default function LoginScreen() {
       return;
     }
 
+    let phoneE164: string | null = null;
+    if (method === 'phone') {
+      phoneE164 = normalizeE164(identifier);
+      if (!phoneE164) {
+        setError('Enter your phone in international format, e.g. +233241234567 (or 024… for Ghana).');
+        haptics.error();
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const body = method === 'email'
         ? { email: identifier, password }
-        : { phoneNumber: identifier, password };
+        : { phoneNumber: phoneE164!, password };
       const data = await authApi.login(body);
       await login(data);
       haptics.success();
@@ -84,9 +104,24 @@ export default function LoginScreen() {
     >
       <LightBeam opacity={0.1} />
 
-      {/* Worship congregation silhouette anchored at the base, behind the card */}
+      {/* Ambient light blobs (ui-ux-pro-max Cinema Mobile spec) — slow-drifting
+          gold + purple glows behind the glass */}
+      <AmbientGlow color="rgba(244,164,41,0.13)" size={300} style={{ top: -70, right: -90 }} />
+      <AmbientGlow
+        color="rgba(107,63,160,0.18)"
+        size={340}
+        style={{ bottom: 60, left: -130 }}
+        durationMs={14000}
+        driftX={-22}
+        driftY={24}
+      />
+
+      {/* Worship congregation silhouette anchored at the base, behind the card.
+          Kept short and faint: on shorter Android viewports the taller silhouette
+          rose through the translucent card and visually overlapped the
+          "Register your church" button (taller iPhones cleared it). */}
       <View style={styles.congregation} pointerEvents="none">
-        <Congregation width={width} height={width * 0.55} />
+        <Congregation width={width} height={Math.min(width * 0.4, 200)} />
       </View>
 
       <KeyboardAvoidingView
@@ -98,16 +133,24 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Floating logo */}
-          <View style={styles.logoArea}>
-            <FloatingElement amplitude={6} duration={3000}>
-              <View style={styles.logoCircle}>
-                <LinearGradient colors={Gradients.glory} style={styles.logoGradient}>
-                  <Text style={styles.logoK}>K</Text>
-                </LinearGradient>
-              </View>
-            </FloatingElement>
-            <Text style={styles.appName}>Klink</Text>
+          {/* Editorial masthead — left-aligned, oversized serif display */}
+          <View style={styles.masthead}>
+            <View style={styles.brandRow}>
+              <FloatingElement amplitude={6} duration={3000}>
+                <View style={styles.logoCircle}>
+                  <LinearGradient colors={Gradients.glory} style={styles.logoGradient}>
+                    <Text style={styles.logoK}>K</Text>
+                  </LinearGradient>
+                </View>
+              </FloatingElement>
+              <Text style={styles.wordmark}>KLINK</Text>
+            </View>
+            <Text style={styles.eyebrow}>Church community · Ghana</Text>
+            <Text style={styles.displayLine}>
+              Welcome{'\n'}
+              <Text style={styles.displayItalic}>home.</Text>
+            </Text>
+            <View style={styles.mastheadRule} />
           </View>
 
           {/* Glass card */}
@@ -116,8 +159,7 @@ export default function LoginScreen() {
               <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
               <View style={[StyleSheet.absoluteFill, styles.glassOverlay]} />
 
-              <Text style={styles.cardTitle}>Welcome back</Text>
-              <Text style={styles.cardSubtitle}>Sign in to your church</Text>
+              <Text style={styles.cardEyebrow}>Sign in</Text>
 
               {/* Method toggle */}
               <View style={styles.toggle}>
@@ -213,7 +255,9 @@ export default function LoginScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Register your church"
               >
-                <Text style={styles.registerChurchText}>⛪ Pastor? Register your church</Text>
+                <Text style={styles.registerChurchText} numberOfLines={1} adjustsFontSizeToFit>
+                  ⛪ Pastor? Register your church
+                </Text>
               </TouchableOpacity>
 
               <Text style={styles.social}>Trusted by churches across Ghana</Text>
@@ -228,18 +272,27 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
-  congregation: { position: 'absolute', left: 0, right: 0, bottom: 0, opacity: 0.9 },
+  congregation: { position: 'absolute', left: 0, right: 0, bottom: -16, opacity: 0.45 },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: Spacing.pagePadding,
-    paddingVertical: Spacing.xxxl,
+    // xxxl pushed the content past shorter Android viewports; the overflow put
+    // the bottom of the card on top of the silhouette.
+    paddingVertical: Spacing.xl,
   },
-  logoArea: { alignItems: 'center', marginBottom: Spacing.xl, gap: Spacing.sm },
+  // Editorial masthead (2026-07-18 layout redesign)
+  masthead: { marginBottom: Spacing.lg, gap: Spacing.sm },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
   logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: Colors.gold,
     shadowOffset: { width: 0, height: 0 },
@@ -248,12 +301,35 @@ const styles = StyleSheet.create({
     elevation: 16,
   },
   logoGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  logoK: { color: Colors.purple, fontSize: 38, fontWeight: FontWeight.bold },
-  appName: {
+  logoK: { color: Colors.purple, fontSize: 26, fontWeight: FontWeight.bold },
+  wordmark: {
     color: Colors.white,
-    fontSize: FontSize.h2,
+    fontSize: 15,
     fontWeight: FontWeight.bold,
-    letterSpacing: LetterSpacing.tight,
+    letterSpacing: 4,
+  },
+  eyebrow: {
+    color: Colors.gold,
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+  },
+  displayLine: {
+    color: Colors.white,
+    fontFamily: FontFamily.displayBold,
+    fontSize: 44,
+    lineHeight: 50,
+  },
+  displayItalic: {
+    fontFamily: FontFamily.displayItalic,
+    color: Colors.gold,
+  },
+  mastheadRule: {
+    height: 1,
+    width: 72,
+    backgroundColor: 'rgba(244,164,41,0.35)',
+    marginTop: Spacing.xs,
   },
   card: {
     borderRadius: BorderRadius.xxl,
@@ -266,18 +342,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
+    borderTopColor: 'rgba(255,255,255,0.32)', // light edge — light from above
   },
-  cardTitle: {
-    color: Colors.white,
-    fontSize: FontSize.h2,
-    fontWeight: FontWeight.bold,
-    textAlign: 'center',
-  },
-  cardSubtitle: {
-    color: Colors.darkMuted,
-    fontSize: FontSize.body,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
+  cardEyebrow: {
+    color: 'rgba(245,240,255,0.65)',
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   toggle: {
     flexDirection: 'row',
@@ -317,6 +389,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(244,164,41,0.5)',
     borderRadius: BorderRadius.full,
     paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',

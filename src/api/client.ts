@@ -177,7 +177,9 @@ apiClient.interceptors.response.use(
     }
 
     // ── Retry on transient network errors ──────────────────────────────────
-    if (!originalRequest._retry) {
+    // Public auth calls are exempt: a login/register attempt must fail FAST with
+    // a clear message, never sit behind silent retries (the "loads forever" bug).
+    if (!originalRequest._retry && !isPublicAuthCall) {
       const retryCount = originalRequest._retryCount ?? 0;
       const isTransient =
         !error.response || error.response.status >= 500;

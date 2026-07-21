@@ -54,6 +54,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       role: data.role,
       churchId: data.churchId,
       churchCode: data.churchCode,
+      // Previously missing — the profile lost the member's email and photo on
+      // every fresh login until they re-uploaded a picture.
+      email: data.email ?? undefined,
+      photoUrl: data.photoUrl ?? undefined,
       emailVerified: data.emailVerified,
       phoneVerified: data.phoneVerified,
     };
@@ -82,6 +86,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   logout: async () => {
+    // Best-effort: clear the device push token server-side BEFORE the session
+    // is revoked, so a signed-out device stops receiving pushes. Fire-and-forget.
+    try {
+      const { unregisterPushNotifications } = require('../utils/pushNotifications');
+      unregisterPushNotifications();
+    } catch {
+      // non-fatal
+    }
     // Fire-and-forget server revoke — NEVER block sign-out on the network.
     // (Awaiting this made "Sign out" feel dead for seconds on slow tunnels.)
     authApi.logout().catch(() => {});
