@@ -2,7 +2,7 @@
 
 This is a **mobile-only** app (iOS/Android). There is no web target — do not
 run `--web` or add react-native-web. The complete, current runbook is in
-**the dev runbook** and **HOW-TO-TEST-IPHONE.md**; this file is the quick version.
+**HOW-TO-TEST-IPHONE.md**; this file is the quick version.
 
 Project paths (repos moved off the Desktop 2026-07-16):
 - Frontend: `C:\Users\lemue\IdeaProjects\klinkApp\Klink-frontend`

@@ -39,7 +39,7 @@ import { useRole } from '../../src/store/authStore';
 // Contributions are only accepted while the project can still receive funds
 const CONTRIBUTABLE = ['APPROVED', 'FUNDRAISING', 'IN_PROGRESS', 'ON_HOLD'];
 
-// Mirror of the backend's status transition map (see backend the dev runbook).
+// Mirror of the backend's status transition map (ProjectService).
 // APPROVED is additionally Pastor-only — the backend enforces it too.
 const NEXT_STATUSES: Record<string, string[]> = {
   PROPOSED: ['APPROVED', 'CANCELLED'],

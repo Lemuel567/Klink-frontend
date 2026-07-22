@@ -32,7 +32,7 @@ npx expo start
 `.npmrc` sets `legacy-peer-deps=true` — required (React 19 vs older peer ranges).
 
 ## Testing on a device
-The full dev runbook lives in **the dev runbook** and **HOW-TO-TEST-IPHONE.md**.
+The full dev runbook lives in **HOW-TO-TEST-IPHONE.md**.
 Two paths work on campus Wi-Fi (which isolates devices):
 
 - **Preferred — laptop Windows Mobile Hotspot (LAN, fast):** phone joins the
