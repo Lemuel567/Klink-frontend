@@ -4,7 +4,7 @@ This guide explains how the Financial Secretary (FinSec) uses the Klink app.
 
 ## What You Can Do
 
-- **Giving** — views and track member giving records via Paystack
+- **Giving** — view and track member giving records via Paystack
 - **Projects** — monitor fundraising progress for church projects
 - **Store** — manage store transactions
 - **Members** — view the member directory for reference
