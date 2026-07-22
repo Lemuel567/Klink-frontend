@@ -30,7 +30,7 @@ export interface PollPage {
 }
 
 export const pollsApi = {
-  // Pastor / Elder / Manager: create poll
+  // Pastor / Manager ONLY: create poll (immutable once created — no edit API)
   create: (body: { question: string; options: string[]; closesAt?: string }) =>
     apiClient.post<Poll>('/polls', body).then((r) => r.data),
 
@@ -42,7 +42,7 @@ export const pollsApi = {
   vote: (pollId: string, selectedOption: string) =>
     apiClient.post<Poll>(`/polls/${pollId}/vote`, { selectedOption }).then((r) => r.data),
 
-  // Pastor / Elder / Manager: get vote results
+  // ALL members: aggregate vote results (anonymous — counts + percentages only)
   getResults: (pollId: string) =>
     apiClient.get<PollResults>(`/polls/${pollId}/results`).then((r) => r.data),
 

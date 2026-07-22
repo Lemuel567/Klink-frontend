@@ -19,7 +19,6 @@ import {
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../src/store/authStore';
-import { useThemeStore } from '../src/store/themeStore';
 import { useSoundStore } from '../src/store/soundStore';
 import { soundManager } from '../src/utils/soundManager';
 import { useTheme } from '../src/hooks/useTheme';
@@ -28,6 +27,7 @@ import { MusicIndicator } from '../src/components/common/MusicIndicator';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { RotatingBackground } from '../src/components/common/RotatingBackground';
+import { registerForPushNotifications, startPushListeners } from '../src/utils/pushNotifications';
 import { asyncStoragePersister } from '../src/utils/queryPersister';
 import { ACCESS_TOKEN_TTL_MS, TOKEN_REFRESH_MARGIN_MS } from '../src/utils/constants';
 import * as SecureStore from 'expo-secure-store';
@@ -68,13 +68,27 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const { initialize, isAuthenticated, logout } = useAuthStore();
-  const { initialize: initTheme } = useThemeStore();
   const { initialize: initSound } = useSoundStore();
+  const userId = useAuthStore((s) => s.user?.id);
 
   useNetworkStatus();
 
   // Track whether the session warning has been shown for the current token
   const sessionWarningShownRef = useRef(false);
+  const prevUserIdRef = useRef<string | null>(null);
+
+  // Cached server data belongs to ONE member. When the signed-in account
+  // changes (sign out, or a different member logs in on this phone), wipe the
+  // query cache — otherwise the previous member's polls voted-flags, giving
+  // history, notifications, etc. are shown to the next member until each
+  // query happens to refetch (slow over tunnels, and a privacy leak).
+  useEffect(() => {
+    const prev = prevUserIdRef.current;
+    prevUserIdRef.current = userId ?? null;
+    if (prev && prev !== userId) {
+      queryClient.clear();
+    }
+  }, [userId]);
 
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_700Bold,
@@ -88,7 +102,7 @@ export default function RootLayout() {
   // Initialize all stores, then start global background music
   useEffect(() => {
     async function prepare() {
-      await Promise.all([initialize(), initTheme(), initSound(), soundManager.initialize()]);
+      await Promise.all([initialize(), initSound(), soundManager.initialize()]);
       if (fontsLoaded || fontError) {
         await SplashScreen.hideAsync();
       }
@@ -113,6 +127,15 @@ export default function RootLayout() {
     });
     return () => subscription.remove();
   }, []);
+
+  // Push notifications: register the device token + start the foreground
+  // listener whenever a session exists (fresh login OR restored from SecureStore).
+  // No-ops safely in Expo Go — remote push needs a dev build.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    registerForPushNotifications();
+    startPushListeners();
+  }, [isAuthenticated]);
 
   // Session timeout warning: alert 2 minutes before token expires
   useEffect(() => {
@@ -189,6 +212,11 @@ export default function RootLayout() {
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: 'transparent' },
+                // Motion overhaul (2026-07-22): every push slides in smoothly on
+                // BOTH platforms (Android's default was an abrupt jump). Modal
+                // screens keep their native slide-up via presentation: 'modal'.
+                animation: 'slide_from_right',
+                animationDuration: 280,
               }}
             >
               <Stack.Screen name="(auth)" />
@@ -203,6 +231,7 @@ export default function RootLayout() {
               <Stack.Screen name="projects/index" />
               <Stack.Screen name="projects/[id]" />
               <Stack.Screen name="facilities/index" />
+              <Stack.Screen name="facilities/[id]" />
               <Stack.Screen name="events/index" />
               <Stack.Screen name="announcements/index" />
               <Stack.Screen name="sermons/[id]" />
@@ -217,6 +246,13 @@ export default function RootLayout() {
               <Stack.Screen name="groups/[id]" />
               <Stack.Screen name="notifications/index" />
               <Stack.Screen name="store/index" />
+              <Stack.Screen name="pledges/index" />
+              <Stack.Screen name="polls/index" />
+              <Stack.Screen name="gallery/index" />
+              <Stack.Screen name="files/index" />
+              <Stack.Screen name="hall-of-fame/index" />
+              <Stack.Screen name="members/register" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="profile/change-password" options={{ presentation: 'modal' }} />
             </Stack>
             </RotatingBackground>
           </PersistQueryClientProvider>

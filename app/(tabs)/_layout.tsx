@@ -45,6 +45,10 @@ export default function TabLayout() {
         headerShown: false,
         // Transparent scenes — the root RotatingBackground shows through
         sceneStyle: { backgroundColor: 'transparent' },
+        // NO tab-scene animation. 'shift' (tried 2026-07-22) left scenes stuck
+        // invisible with the custom tab bar + transparent scenes — content only
+        // "flashed" during the next switch. The sliding pill + ScrollReveal
+        // choreography provide the motion instead.
       }}
       tabBar={(props) => <KlinkTabBar {...props} />}
     >
@@ -83,31 +87,36 @@ function KlinkTabBar({ state, descriptors, navigation }: any) {
   }));
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom || 16 }]}>
-      <BlurView intensity={isDark ? 80 : 60} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, styles.glassOverlay]} />
+    // Floating glass dock (2026-07-18 redesign): the bar no longer runs
+    // edge-to-edge — it floats as a rounded pill over the worship photo, with
+    // a full-height gold pill sliding behind the active tab.
+    <View style={[styles.wrap, { paddingBottom: (insets.bottom || 16) + 6 }]}>
+      <View style={styles.dock}>
+        <BlurView intensity={isDark ? 80 : 60} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, styles.glassOverlay]} />
 
-      {/* Sliding indicator */}
-      <Animated.View style={[styles.pill, pillStyle]} />
+        {/* Sliding active pill — full height, behind the icons */}
+        <Animated.View style={[styles.pill, pillStyle]} />
 
-      {visibleRoutes.map((route: any, index: number) => {
-        const meta = TAB_META[route.name] ?? { label: route.name, icon: '•' };
-        return (
-          <TabItem
-            key={route.key}
-            tab={{ name: route.name, ...meta }}
-            isActive={route.key === activeKey}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              pillX.value = withSpring(index, SpringConfig.tab);
-              if (route.key !== activeKey) {
-                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-                if (!event.defaultPrevented) navigation.navigate(route.name);
-              }
-            }}
-          />
-        );
-      })}
+        {visibleRoutes.map((route: any, index: number) => {
+          const meta = TAB_META[route.name] ?? { label: route.name, icon: '•' };
+          return (
+            <TabItem
+              key={route.key}
+              tab={{ name: route.name, ...meta }}
+              isActive={route.key === activeKey}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                pillX.value = withSpring(index, SpringConfig.tab);
+                if (route.key !== activeKey) {
+                  const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                  if (!event.defaultPrevented) navigation.navigate(route.name);
+                }
+              }}
+            />
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -146,32 +155,42 @@ function TabItem({ tab, isActive, onPress }: { tab: { name: string; label: strin
 }
 
 const styles = StyleSheet.create({
-  container: {
+  // Transparent outer wrapper — the photo shows all around the floating dock
+  wrap: {
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    backgroundColor: 'transparent',
+  },
+  dock: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    position: 'relative',
+    borderRadius: 999,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(244,164,41,0.25)',
+    borderTopColor: 'rgba(255,255,255,0.28)', // light edge — light from above
+    position: 'relative',
   },
   glassOverlay: {
-    // Translucent — the worship photo glows through the blurred tab bar
-    backgroundColor: 'rgba(10,5,32,0.55)',
+    // Translucent — the worship photo glows through the blurred dock
+    backgroundColor: 'rgba(10,5,32,0.6)',
   },
+  // Full-height gold pill behind the active tab (was a thin top line)
   pill: {
     position: 'absolute',
-    top: 6,
-    height: 4,
-    backgroundColor: Colors.gold,
-    borderRadius: 2,
+    top: 5,
+    bottom: 5,
+    backgroundColor: 'rgba(244,164,41,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,164,41,0.35)',
+    borderRadius: 999,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    minHeight: 44,
+    paddingVertical: 10,
+    minHeight: 52,
     gap: 2,
   },
   icon: {
@@ -181,6 +200,7 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     fontSize: FontSize.micro,
     fontWeight: FontWeight.semiBold,
-    letterSpacing: 0.3,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

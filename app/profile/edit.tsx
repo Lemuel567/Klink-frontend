@@ -143,7 +143,10 @@ export default function EditProfileScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      // 0.5 keeps an avatar visually perfect (it renders at ~100px) while
+      // cutting the upload to a fraction — critical over slow tunnels where
+      // a 0.8-quality multi-MB photo regularly timed out.
+      quality: 0.5,
     };
     const result =
       source === 'camera'

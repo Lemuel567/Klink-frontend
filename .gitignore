@@ -108,3 +108,7 @@ out
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# IDE + local tunnel logs
+.idea/
+.tunnel-logs/

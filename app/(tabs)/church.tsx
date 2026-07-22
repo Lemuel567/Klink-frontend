@@ -1,30 +1,64 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ImageSourcePropType, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChurchBuilding } from '../../src/components/worship';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
-import { ScreenPhotos } from '../../src/utils/worshipImages';
+import { ScreenPhotos, WorshipImages } from '../../src/utils/worshipImages';
 import { churchApi } from '../../src/api/church';
 import { Colors, Gradients } from '../../src/theme/colors';
-import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
+import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { StaggerDelay } from '../../src/theme/animations';
 
-// Hub for everything the church publishes — each row is a fully-wired screen.
-const SECTIONS = [
-  { title: 'Church Projects', desc: 'See what our church is building and achieving', icon: '🏗️', route: '/projects' as const, color: Colors.gold },
-  { title: 'Announcements', desc: 'Stay up to date with your church', icon: '📣', route: '/announcements' as const, color: Colors.purpleLight },
-  { title: 'Events', desc: "What's happening and when", icon: '📅', route: '/events' as const, color: Colors.blue },
-  { title: 'Sermons', desc: 'Messages from the Word', icon: '📖', route: '/sermons' as const, color: Colors.green },
-  { title: 'Prayer Wall', desc: 'Bring your requests before God together', icon: '🙏', route: '/prayer' as const, color: Colors.roseGold },
-  { title: 'Daily Devotional', desc: 'Verse and reflection for today', icon: '✝️', route: '/devotional' as const, color: Colors.goldDim },
-  { title: 'Church Store', desc: 'Books, merch and materials from your church', icon: '🛍️', route: '/store' as const, color: Colors.stageAmber },
+type Feature = { title: string; desc: string; route: any; photo: ImageSourcePropType };
+
+// Hub redesign (2026-07-18): the flat 14-tile grid is now DIVIDED into labeled
+// groups, and every feature is a real-photo card (dark scrim keeps text clear
+// without fighting the rotating background). This is where the low-res accent
+// photos live — tile-sized, never full screen.
+const GROUPS: { label: string; features: Feature[] }[] = [
+  {
+    label: 'Worship',
+    features: [
+      { title: 'Sermons', desc: 'Messages & audio', route: '/sermons', photo: WorshipImages.worshipLeader1 },
+      { title: 'Devotional', desc: "Today's word", route: '/devotional', photo: WorshipImages.worshipSolo1 },
+      { title: 'Prayer Wall', desc: 'Pray together', route: '/prayer', photo: WorshipImages.prayer2 },
+      { title: 'Gallery', desc: 'Photo moments', route: '/gallery', photo: WorshipImages.celebration1 },
+    ],
+  },
+  {
+    label: 'Community',
+    features: [
+      { title: 'Groups', desc: 'Your ministries', route: '/groups', photo: WorshipImages.congregation4 },
+      { title: 'Attendance', desc: 'Check in & records', route: '/attendance', photo: WorshipImages.sanctuarySmall1 },
+      { title: 'Events', desc: "What's coming up", route: '/events', photo: WorshipImages.sanctuaryBlue1 },
+      { title: 'Announcements', desc: 'Church news', route: '/announcements', photo: WorshipImages.congregation3 },
+      { title: 'Polls', desc: 'Have your say', route: '/polls', photo: WorshipImages.crowd2 },
+      { title: 'Hall of Fame', desc: 'Honoured members', route: '/hall-of-fame', photo: WorshipImages.worshipHands2 },
+    ],
+  },
+  {
+    label: 'Giving & Stewardship',
+    features: [
+      { title: 'Projects', desc: 'Building & fundraising', route: '/projects', photo: WorshipImages.congregation2 },
+      { title: 'Pledges', desc: 'Promises made', route: '/pledges', photo: WorshipImages.worshipHands3 },
+      { title: 'Store', desc: 'Books & merch', route: '/store', photo: WorshipImages.singerTeal1 },
+    ],
+  },
+  {
+    label: 'Resources',
+    features: [
+      { title: 'Church Files', desc: 'Docs & forms', route: '/files', photo: WorshipImages.worshipService1 },
+      { title: 'Facilities', desc: 'Buildings & assets', route: '/facilities', photo: WorshipImages.churchInterior1 },
+    ],
+  },
 ];
 
 export default function ChurchScreen() {
@@ -40,12 +74,19 @@ export default function ChurchScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
-        <WatermarkBackground
-          imageSource={ScreenPhotos.church}
-          overlayOpacity={0.55}
-          overlayColor="#1A0533"
-          style={[styles.header, { paddingTop: insets.top + 16 }]}
-        >
+        {/* Distinct static photo header — not the global rotation */}
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <Image
+            source={ScreenPhotos.church}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={300}
+          />
+          <LinearGradient
+            colors={['rgba(26,5,51,0.35)', 'rgba(26,5,51,0.65)', 'rgba(10,5,32,0.92)']}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.heroArt} pointerEvents="none">
             <ChurchBuilding width={200} height={160} />
           </View>
@@ -55,31 +96,56 @@ export default function ChurchScreen() {
           <Text style={styles.headerSub}>
             {church?.location ?? 'Everything your church shares, in one place'}
           </Text>
-        </WatermarkBackground>
-
-        <View style={styles.sections}>
-          {SECTIONS.map((s, i) => (
-            <ScrollReveal key={s.route} delay={i * StaggerDelay.list}>
-              <TouchableOpacity
-                onPress={() => { haptics.light(); router.push(s.route); }}
-                style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-                accessibilityRole="button"
-                accessibilityLabel={s.title}
-              >
-                <View style={[styles.iconWrap, { backgroundColor: `${s.color}20` }]}>
-                  <Text style={styles.icon}>{s.icon}</Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={[styles.cardTitle, { color: theme.text }]}>{s.title}</Text>
-                  <Text style={[styles.cardDesc, { color: theme.textMuted }]} numberOfLines={1}>
-                    {s.desc}
-                  </Text>
-                </View>
-                <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
-              </TouchableOpacity>
-            </ScrollReveal>
-          ))}
         </View>
+
+        {GROUPS.map((group, g) => (
+          <View key={group.label} style={styles.groupBlock}>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupEyebrow}>{group.label}</Text>
+              <View style={styles.groupRule} />
+            </View>
+            <View style={styles.grid}>
+              {group.features.map((s, i) => (
+                // Meet-in-the-center choreography: left-column tiles glide in
+                // from the LEFT, right-column tiles from the RIGHT, and both
+                // tiles of a row share one delay so they arrive together.
+                <ScrollReveal
+                  key={s.route}
+                  delay={Math.min(g * 2 + Math.floor(i / 2), 7) * StaggerDelay.list}
+                  direction={i % 2 === 0 ? 'right' : 'left'}
+                  distance={72}
+                  scaleFrom={0.97}
+                  style={styles.gridItem}
+                >
+                  <TouchableOpacity
+                    onPress={() => { haptics.light(); router.push(s.route); }}
+                    style={styles.photoTile}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={s.title}
+                  >
+                    <Image
+                      source={s.photo}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={200}
+                    />
+                    {/* Dark scrim — text always reads, photo never fights the layout */}
+                    <LinearGradient
+                      colors={['rgba(10,5,32,0.1)', 'rgba(10,5,32,0.55)', 'rgba(10,5,32,0.92)']}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.tileText}>
+                      <Text style={styles.tileTitle} numberOfLines={1}>{s.title}</Text>
+                      <Text style={styles.tileDesc} numberOfLines={1}>{s.desc}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </ScrollReveal>
+              ))}
+            </View>
+          </View>
+        ))}
       </ScrollView>
     </View>
   );
@@ -97,33 +163,42 @@ const styles = StyleSheet.create({
   },
   heroArt: { position: 'absolute', right: -10, top: 10, opacity: 0.3 },
   headerTitle: {
+    // The church's own name in the serif display voice — the hero as thesis.
     color: Colors.white,
+    fontFamily: FontFamily.displayBold,
     fontSize: FontSize.h2,
-    fontWeight: FontWeight.bold,
     letterSpacing: LetterSpacing.tight,
     maxWidth: '70%',
   },
   headerSub: { color: 'rgba(255,255,255,0.65)', fontSize: FontSize.small, maxWidth: '70%' },
-  sections: { padding: Spacing.pagePadding, gap: Spacing.sm },
-  card: {
+  // Divided photo-card sections (2026-07-18 redesign)
+  groupBlock: { paddingHorizontal: Spacing.pagePadding, marginTop: Spacing.lg },
+  groupHeader: { gap: 8, marginBottom: Spacing.md },
+  groupEyebrow: {
+    color: Colors.gold,
+    fontSize: 11,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+  },
+  groupRule: { height: 1, backgroundColor: 'rgba(244,164,41,0.2)' },
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    borderRadius: BorderRadius.xl,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.sm,
+  },
+  gridItem: { width: '48.5%' },
+  photoTile: {
+    height: 132,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
     borderWidth: 1,
-    padding: Spacing.md,
-    minHeight: 72,
+    borderColor: 'rgba(244,164,41,0.25)',
+    borderTopColor: 'rgba(255,255,255,0.28)', // light edge
+    justifyContent: 'flex-end',
   },
-  iconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: { fontSize: 22 },
-  cardBody: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: FontSize.body, fontWeight: FontWeight.semiBold },
-  cardDesc: { fontSize: FontSize.caption },
-  chevron: { fontSize: 26, fontWeight: FontWeight.regular },
+  tileText: { padding: Spacing.sm + 2, gap: 2 },
+  tileTitle: { color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold },
+  tileDesc: { color: 'rgba(245,240,255,0.75)', fontSize: FontSize.caption },
 });

@@ -58,6 +58,10 @@ export const membersApi = {
     category?: string;
   }) => apiClient.post<Member>('/members/register', body).then((r) => r.data),
 
+  // POST /members/me/leave — the member removes THEMSELVES from the church.
+  // Backend deactivates the account and revokes every session.
+  leaveChurch: () => apiClient.post('/members/me/leave').then((r) => r.data),
+
   // FCM token: PUT /members/me/fcm-token with { token }
   registerFcmToken: (token: string) =>
     apiClient.put('/members/me/fcm-token', { token }).then((r) => r.data),
@@ -74,7 +78,12 @@ export const membersApi = {
     const form = new FormData();
     form.append('file', { uri: file.uri, name: file.name, type: file.type } as any);
     return apiClient
-      .post<string>(`/members/${id}/photo`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .post<string>(`/members/${id}/photo`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        // File uploads get double the normal timeout — a photo through a free
+        // tunnel can legitimately take over a minute.
+        timeout: 120_000,
+      })
       .then((r) => r.data);
   },
 };

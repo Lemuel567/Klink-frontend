@@ -21,6 +21,9 @@ export const mediaApi = {
       .post<MediaUploadResponse>('/media/upload', form, {
         params: folder ? { folder } : undefined,
         headers: { 'Content-Type': 'multipart/form-data' },
+        // File uploads get double the normal timeout — a photo through a free
+        // tunnel can legitimately take over a minute.
+        timeout: 120_000,
       })
       .then((r) => r.data);
   },

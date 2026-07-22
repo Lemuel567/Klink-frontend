@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,10 +14,10 @@ import { GlassmorphismCard } from '../../src/components/common/KlinkCard';
 import { CountUp } from '../../src/components/common/CountUp';
 import { HandsRaised } from '../../src/components/worship';
 import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
-import { ScreenPhotos } from '../../src/utils/worshipImages';
+import { ScreenPhotos, WorshipImages } from '../../src/utils/worshipImages';
 import { givingApi, Payment } from '../../src/api/giving';
 import { Colors, Gradients } from '../../src/theme/colors';
-import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
+import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
@@ -55,7 +56,15 @@ const CATEGORIES: {
   },
 ];
 
-const CAT_CARD_W = 100;
+// Real worship photo behind each category card (dark scrim keeps text crisp)
+const CAT_PHOTOS: Record<string, any> = {
+  TITHE: WorshipImages.worshipSolo1,
+  OFFERING: WorshipImages.congregation1,
+  WELFARE: WorshipImages.prayer1,
+  SPECIAL_CONTRIBUTION: WorshipImages.worshipHands4,
+};
+
+const CAT_CARD_W = 150;
 const CAT_CARD_GAP = 10;
 
 export default function GivingScreen() {
@@ -63,13 +72,24 @@ export default function GivingScreen() {
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
   const role = useRole();
-  // FinSec records manual payments; everyone else pays online via Paystack
-  const giveRoute = role === 'FINANCIAL_SECRETARY' ? '/giving/new' : '/giving/pay';
+  // EVERYONE (including the Financial Secretary) gives personally via Paystack.
+  // The FinSec's church-recording duty is a SEPARATE button below — previously
+  // it hijacked their "Give Now", leaving them no way to make personal payments.
+  const isFinSec = role === 'FINANCIAL_SECRETARY';
 
   const { data: myPayments, isLoading, refetch, isRefetching } =
-    useQuery({ queryKey: ['myPayments'], queryFn: () => givingApi.getMyPayments({ size: 10 }) });
+    useQuery({ queryKey: ['myPayments'], queryFn: () => givingApi.getMyPayments({ size: 100 }) });
 
-  const total = myPayments?.content?.reduce((sum: number, p: Payment) => sum + (p.amount as number), 0) ?? 0;
+  // "THIS MONTH" must mean this month — the old sum of the last 10 payments
+  // showed an all-time-ish figure under a monthly label.
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const total =
+    myPayments?.content
+      ?.filter(
+        (p: Payment) =>
+          p.paymentMonth === currentMonth || (p.paymentDate ?? '').startsWith(currentMonth),
+      )
+      .reduce((sum: number, p: Payment) => sum + (p.amount as number), 0) ?? 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -80,12 +100,22 @@ export default function GivingScreen() {
         }
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Worship photo hero — warm personal devotion (worship-solo-1) */}
-        <WatermarkBackground
-          imageSource={ScreenPhotos.giving}
-          overlayOpacity={0.55}
-          style={[styles.hero, { paddingTop: insets.top + 16 }]}
-        >
+        {/* Worship photo hero — DISTINCT static photo (warm personal devotion),
+            not the global rotation, so Give has its own visual identity.
+            (WatermarkBackground ignores imageSource since the dark-only overhaul —
+            it just showed the same rotation as every other screen.) */}
+        <View style={[styles.hero, { paddingTop: insets.top + 16, overflow: 'hidden' }]}>
+          <Image
+            source={ScreenPhotos.giving}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={300}
+          />
+          <LinearGradient
+            colors={['rgba(10,5,32,0.3)', 'rgba(10,5,32,0.55)', 'rgba(10,5,32,0.9)']}
+            style={StyleSheet.absoluteFill}
+          />
           <LinearGradient
             colors={['rgba(244,164,41,0.18)', 'transparent']}
             style={StyleSheet.absoluteFill}
@@ -105,9 +135,17 @@ export default function GivingScreen() {
 
           <KlinkButton
             label="Give Now"
-            onPress={() => { haptics.give(); router.push(giveRoute); }}
+            onPress={() => { haptics.give(); router.push('/giving/pay'); }}
             style={styles.giveBtn}
           />
+          {isFinSec && (
+            <KlinkButton
+              label="Record Member Payment"
+              variant="secondary"
+              onPress={() => { haptics.medium(); router.push('/giving/new'); }}
+              style={styles.giveBtn}
+            />
+          )}
           <TouchableOpacity
             onPress={() => { haptics.light(); router.push('/giving/payment-history'); }}
             style={styles.onlineHistoryLink}
@@ -116,7 +154,7 @@ export default function GivingScreen() {
           >
             <Text style={styles.onlineHistoryText}>Online payments ›</Text>
           </TouchableOpacity>
-        </WatermarkBackground>
+        </View>
 
         {/* Categories — premium gradient tiles, horizontal snap, one-line text */}
         <ScrollReveal delay={0}>
@@ -133,17 +171,22 @@ export default function GivingScreen() {
                 <TouchableOpacity
                   key={cat.key}
                   activeOpacity={0.85}
-                  onPress={() => { haptics.medium(); router.push(giveRoute); }}
+                  onPress={() => { haptics.medium(); router.push('/giving/pay'); }}
                   accessibilityRole="button"
                   accessibilityLabel={`${cat.label}: ${cat.sub}`}
                   style={[styles.catShadow, { shadowColor: cat.gradient[0] }]}
                 >
-                  <LinearGradient
-                    colors={cat.gradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.categoryCard}
-                  >
+                  <View style={[styles.categoryCard, { overflow: 'hidden' }]}>
+                    <Image
+                      source={CAT_PHOTOS[cat.key]}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
+                    <LinearGradient
+                      colors={['rgba(10,5,32,0.15)', 'rgba(10,5,32,0.5)', 'rgba(10,5,32,0.88)']}
+                      style={StyleSheet.absoluteFill}
+                    />
                     <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
                       <Path
                         d={cat.icon}
@@ -155,7 +198,7 @@ export default function GivingScreen() {
                     </Svg>
                     <Text style={styles.catLabel} numberOfLines={1}>{cat.label}</Text>
                     <Text style={styles.catDesc} numberOfLines={1}>{cat.sub}</Text>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -187,7 +230,7 @@ export default function GivingScreen() {
               </Text>
             </View>
           ) : (
-            myPayments?.content?.map((payment: Payment, i: number) => (
+            myPayments?.content?.slice(0, 10).map((payment: Payment, i: number) => (
               <PaymentRow key={payment.id} payment={payment} index={i} />
             ))
           )}
@@ -261,7 +304,9 @@ const styles = StyleSheet.create({
   onlineHistoryLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   onlineHistoryText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
   section: { padding: Spacing.pagePadding, gap: Spacing.md },
-  sectionTitle: { fontSize: FontSize.h4, fontWeight: FontWeight.bold },
+  // Serif display voice for section titles (matches home; no fontWeight with a
+  // weight-specific named family — Android font-resolution quirk)
+  sectionTitle: { fontFamily: FontFamily.displayBold, fontSize: FontSize.h4 },
   categoryRow: { gap: CAT_CARD_GAP, paddingRight: 15, paddingVertical: 6 },
   catShadow: {
     borderRadius: 20,
@@ -272,7 +317,7 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: CAT_CARD_W,
-    height: 120,
+    height: 156,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
