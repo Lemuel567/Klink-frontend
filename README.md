@@ -1,49 +1,76 @@
-# Klink Frontend
+# Klink — Frontend
 
-React Native mobile app (iOS/Android only — no web) for the Klink church
-management platform. Built with Expo, featuring a dark-glass worship visual
-identity: full-bleed rotating worship photos, translucent glass surfaces,
-parallax, and reanimated motion.
+Klink is a church management platform. This repository contains the mobile
+app: a React Native (iOS/Android only, no web) app built with Expo, using a
+dark-glass worship visual identity — full-bleed rotating worship photos,
+translucent glass surfaces, parallax scrolling, and smooth animated motion.
+
+## What Klink Does
+
+Klink helps churches manage their day-to-day ministry in one app:
+
+- **Members** — profiles and directory
+- **Giving** — online giving via Paystack
+- **Projects** — church projects and fundraising
+- **Groups** — small groups / ministries
+- **Attendance** — service and event attendance tracking
+- **Sermons** — sermon archive
+- **Announcements** — church-wide announcements
+- **Prayer Wall** — submit and view prayer requests
+- **Store** — church store / merchandise
+- SMS / email verification for account security
 
 ## Tech Stack
-- Expo SDK 54
-- React 19.1 · React Native 0.81
-- TypeScript 5.9
-- Expo Router 6 (typed routes)
-- React Native Reanimated 4 (worklets)
-- TanStack Query 5 (+ AsyncStorage persistence)
-- Zustand
-- Axios
 
-## Features
-- Worship-themed dark UI (dark mode only by design)
-- Parallax scroll, glassmorphism, particle/dove/thermometer animations
-- Global background worship music with crossfades
-- Push notifications (needs a native dev build — see below)
-- SMS / email verification
-- Full church management: members, giving (Paystack), projects, groups,
-  attendance, sermons, announcements, prayer wall, store, and more
+| Layer | Tech |
+|---|---|
+| Framework | Expo SDK 54 |
+| Core | React 19.1 · React Native 0.81 |
+| Language | TypeScript 5.9 |
+| Navigation | Expo Router 6 (typed routes) |
+| Animation | React Native Reanimated 4 (worklets) |
+| Data fetching | TanStack Query 5 (+ AsyncStorage persistence) |
+| State | Zustand |
+| HTTP client | Axios |
 
-## How to Run
-```
+## Design Notes
+
+- Dark mode only, by design — there is no light theme
+- Parallax scrolling, glassmorphism surfaces, particle/dove/thermometer
+  animations throughout
+- Global background worship music with crossfades between tracks
+- Push notifications require a **native dev build** — they silently do
+  nothing in Expo Go (see Testing section below)
+
+## Getting Started
 npm install
 npx expo start
-```
-`.npmrc` sets `legacy-peer-deps=true` — required (React 19 vs older peer ranges).
 
-## Testing on a device
-The full dev runbook lives in **HOW-TO-TEST-IPHONE.md**.
-Two paths work on campus Wi-Fi (which isolates devices):
+> `.npmrc` sets `legacy-peer-deps=true` — this is required because some
+> packages haven't updated their peer dependency ranges for React 19 yet.
+> Don't remove it.
 
-- **Preferred — laptop Windows Mobile Hotspot (LAN, fast):** phone joins the
-  hotspot (`192.168.137.1`); `ENV='wifi'` in `src/utils/constants.ts`; open the
-  firewall for TCP 8080 + 8081; run `npm start`.
-- **Fallback — Cloudflare tunnel (any network, slower):** `ENV='tunnel'`; paste
-  the per-session `trycloudflare` backend URL into `TUNNEL_API_URL`.
+## Testing on a Physical Device
 
-> Push notifications only deliver in a native **dev build**
-> (`eas build --profile development`) — they silently no-op in Expo Go.
+Campus Wi-Fi isolates devices from each other, so a direct connection won't
+work out of the box. Two options — full step-by-step instructions are in
+**HOW-TO-TEST-IPHONE.md**.
 
-## Backend
-The Spring Boot REST API lives beside this repo at `../Klink-backend`
-(github.com/Lemuel567/Klink-backend). This repo is the mobile app only.
+**Option A — Laptop hotspot (preferred, faster, LAN)**
+1. Turn on Windows Mobile Hotspot on your laptop
+2. Connect your phone to it (laptop will be `192.168.137.1`)
+3. Set `ENV = 'wifi'` in `src/utils/constants.ts`
+4. Open your firewall for TCP ports `8080` and `8081`
+5. Run `npm start`
+
+**Option B — Cloudflare tunnel (fallback, works on any network, slower)**
+1. Set `ENV = 'tunnel'` in `src/utils/constants.ts`
+2. Paste the session's `trycloudflare` backend URL into `TUNNEL_API_URL`
+
+## Related Repository
+
+This repo is the mobile app **only**. The backend is a separate Spring Boot
+REST API:
+
+- Klink-backend (github.com/Lemuel567/Klink-backend) — lives alongside this
+  repo at `../Klink-backend`
