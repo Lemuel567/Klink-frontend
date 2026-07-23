@@ -40,6 +40,7 @@ import { formatRelativeTime } from '../../src/utils/formatters';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 // Backend: create / update / delete = Pastor, Elder, Manager
 const CAN_MANAGE = ['PASTOR', 'ELDER', 'MANAGER'];
@@ -271,6 +272,8 @@ export default function HallOfFameScreen() {
                 maxLength={2000}
                 autoCapitalize="sentences"
               />
+              <AIPolish text={description} onResult={setDescription} contentType="an honour/recognition story for a church member" />
+              <View style={{ height: 12 }} />
 
               {/* Optional honouree — church directory search */}
               <Text style={styles.fieldLabel}>HONOUREE (OPTIONAL)</Text>

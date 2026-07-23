@@ -33,6 +33,7 @@ import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 const CAN_CREATE = ['PASTOR', 'ELDER', 'MANAGER'];
 
@@ -230,6 +231,8 @@ export default function EventsScreen() {
                 maxLength={2000}
                 autoCapitalize="sentences"
               />
+              <AIPolish text={description} onResult={setDescription} contentType="a church event description" />
+              <View style={{ height: 12 }} />
               <KlinkInput
                 label="Location (optional)"
                 value={location}

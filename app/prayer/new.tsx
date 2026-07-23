@@ -26,6 +26,7 @@ import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography'
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { prayerRequestsApi, PrayerVisibility } from '../../src/api/prayerRequests';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 const VISIBILITY_OPTIONS: { key: PrayerVisibility; label: string; color: string; desc: string }[] = [
   { key: 'PUBLIC', label: 'Public', color: Colors.gold, desc: 'Visible to the whole church' },
@@ -151,6 +152,13 @@ export default function NewPrayerRequestScreen() {
                 style={styles.contentInput}
                 autoCapitalize="sentences"
                 error={contentError}
+              />
+
+              <AIPolish
+                text={content}
+                onResult={setContent}
+                contentType="a personal prayer request (keep it humble and heartfelt)"
+                style={{ marginBottom: 12 }}
               />
 
               <KlinkButton

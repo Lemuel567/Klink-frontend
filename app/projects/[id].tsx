@@ -35,6 +35,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { formatCurrency, formatDate } from '../../src/utils/formatters';
 import { useRole } from '../../src/store/authStore';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 // Contributions are only accepted while the project can still receive funds
 const CONTRIBUTABLE = ['APPROVED', 'FUNDRAISING', 'IN_PROGRESS', 'ON_HOLD'];
@@ -483,6 +484,8 @@ export default function ProjectDetailScreen() {
               autoCapitalize="sentences"
               blurOnSubmit={false}
             />
+            <AIPolish text={updContent} onResult={setUpdContent} contentType="a church project progress update" />
+            <View style={{ height: 12 }} />
             <View style={styles.modalActions}>
               <TouchableOpacity
                 onPress={() => { haptics.light(); setComposing(false); }}

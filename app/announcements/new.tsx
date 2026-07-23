@@ -30,6 +30,7 @@ import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 const TARGET_TYPES: AnnouncementTargetType[] = ['ALL', 'ROLES', 'GROUPS', 'MEMBERS', 'CUSTOM'];
 
@@ -178,6 +179,12 @@ export default function NewAnnouncementScreen() {
               multiline
               textAlignVertical="top"
               accessibilityLabel="Announcement message"
+            />
+            <AIPolish
+              text={body}
+              onResult={setBody}
+              contentType="a church announcement (clear and inviting)"
+              style={{ marginTop: 8 }}
             />
           </View>
 

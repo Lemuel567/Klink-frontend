@@ -19,7 +19,7 @@ const LAPTOP_WIFI_IP = '192.168.137.1';
 // ─── BACKEND TUNNEL URL (tunnel mode only) ───────────────────────────────────
 // Started with: npm run tunnel:backend (cloudflared). The trycloudflare URL is
 // RANDOM per run — paste the new one here each session (keep the /api/v1 suffix).
-const TUNNEL_API_URL = 'https://alberta-navy-smithsonian-calculations.trycloudflare.com/api/v1';
+const TUNNEL_API_URL = 'https://models-cycles-performs-longest.trycloudflare.com/api/v1';
 
 // ─── BASE URL LOGIC ──────────────────────────────────────────────────────────
 function getBaseUrl(): string {

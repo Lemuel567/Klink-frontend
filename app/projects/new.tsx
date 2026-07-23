@@ -28,6 +28,7 @@ import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography'
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 // Matches backend ProjectType enum exactly
 const PROJECT_TYPES = [
@@ -195,6 +196,8 @@ export default function NewProjectScreen() {
                 style={styles.multiline}
                 autoCapitalize="sentences"
               />
+              <AIPolish text={description} onResult={setDescription} contentType="a church project/fundraising description" />
+              <View style={{ height: 12 }} />
 
               <Text style={styles.fieldLabel}>Project type</Text>
               <View style={styles.typeGrid}>

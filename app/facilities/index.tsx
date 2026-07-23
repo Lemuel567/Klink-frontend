@@ -36,6 +36,7 @@ import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { StaggerDelay } from '../../src/theme/animations';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 // Role gates match the backend exactly: create/edit = Pastor + Manager;
 // soft delete = Pastor + Elder (FacilityService).
@@ -331,6 +332,8 @@ export default function FacilitiesScreen() {
                 numberOfLines={3}
                 maxLength={2000}
               />
+              <AIPolish text={description} onResult={setDescription} contentType="a church facility/property description" />
+              <View style={{ height: 12 }} />
               <KlinkInput
                 label="Address (optional)"
                 value={address}

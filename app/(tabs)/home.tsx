@@ -270,8 +270,10 @@ export default function HomeScreen() {
             )}
         </View>
 
-        {/* Recent sermons */}
-        <View style={[styles.section, { paddingBottom: 100 }]}>
+        {/* Recent sermons — bottom padding clears the floating tab dock EXACTLY
+            (dock ≈ 64px + the safe-area inset), so the scroll ends right at the
+            content instead of into empty space below it. */}
+        <View style={[styles.section, { paddingBottom: insets.bottom + 64 }]}>
           <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/sermons')} />
           {loadingSermons
             ? Array.from({ length: 2 }, (_, i) => <SermonCardSkeleton key={i} />)

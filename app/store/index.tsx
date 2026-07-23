@@ -39,6 +39,7 @@ import { useRole } from '../../src/store/authStore';
 import { formatCurrency, formatDate } from '../../src/utils/formatters';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 type Tab = 'shop' | 'purchases' | 'payments';
 
@@ -364,6 +365,8 @@ export default function StoreScreen() {
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ maxHeight: 430 }}>
               <KlinkInput label="Item name" value={itName} onChangeText={setItName} maxLength={120} />
               <KlinkInput label="Description (optional)" value={itDesc} onChangeText={setItDesc} multiline numberOfLines={3} maxLength={1000} />
+              <AIPolish text={itDesc} onResult={setItDesc} contentType="a church store product description" />
+              <View style={{ height: 12 }} />
               <KlinkInput label="Price (GHS)" value={itPrice} onChangeText={setItPrice} keyboardType="decimal-pad" />
               <KlinkInput label="Quantity in stock" value={itQty} onChangeText={setItQty} keyboardType="number-pad" />
               <KlinkInput label="Category (optional)" value={itCategory} onChangeText={setItCategory} maxLength={60} />

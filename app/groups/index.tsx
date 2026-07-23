@@ -37,6 +37,7 @@ import { useRole } from '../../src/store/authStore';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 // Leadership that can create groups and appoint the admin (matches backend)
 const CAN_CREATE = ['PASTOR', 'ELDER', 'MANAGER'];
@@ -242,6 +243,8 @@ export default function GroupsScreen() {
 
             <KlinkInput label="Group name" value={groupName} onChangeText={setGroupName} autoCapitalize="words" />
             <KlinkInput label="Description (optional)" value={description} onChangeText={setDescription} />
+            <AIPolish text={description} onResult={setDescription} contentType="a church group/ministry description" />
+            <View style={{ height: 12 }} />
             <KlinkInput
               label="Monthly dues GHS (optional)"
               value={duesAmount}

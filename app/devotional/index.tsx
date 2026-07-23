@@ -36,6 +36,7 @@ import { useRole } from '../../src/store/authStore';
 import { formatRelativeTime } from '../../src/utils/formatters';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { AIPolish } from '../../src/components/common/AIPolish';
 
 const CAN_POST = ['PASTOR', 'ELDER', 'MANAGER'];
 
@@ -249,6 +250,8 @@ export default function DevotionalScreen() {
                 blurOnSubmit={false}
               />
               <Text style={styles.charCount}>{content.length}/2000</Text>
+              <AIPolish text={content} onResult={setContent} contentType="a daily devotional message (warm and encouraging)" />
+              <View style={{ height: 12 }} />
             </ScrollView>
 
             <View style={styles.modalActions}>

@@ -270,8 +270,11 @@ export default function GroupDetailScreen() {
       {tab === 'posts' && (
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={headerH}
+          // Android: 'height' (not native resize, which edge-to-edge breaks) so
+          // the message box isn't hidden behind the keyboard. Same fix as the
+          // Ask Klink chat. iOS keeps its working 'padding' + header offset.
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? headerH : 0}
         >
           {messagesQuery.isLoading ? (
             <View style={{ flex: 1, paddingTop: Spacing.md }}>

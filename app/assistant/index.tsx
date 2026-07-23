@@ -117,8 +117,12 @@ export default function AssistantScreen() {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={headerH}
+        // Android needs an explicit JS behavior: SDK 54 enables edge-to-edge,
+        // which breaks the native window-resize that `undefined` relied on, so
+        // the keyboard covered the composer. 'height' shrinks the view above
+        // the keyboard. iOS keeps its working 'padding' + header offset.
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerH : 0}
       >
         <ScrollView
           ref={scrollRef}

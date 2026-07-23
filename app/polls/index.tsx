@@ -61,6 +61,8 @@ export default function PollsScreen() {
   const [composing, setComposing] = useState(false);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
+  // The poll whose full detail/results sheet is open (via the "Open" tag)
+  const [detailPoll, setDetailPoll] = useState<Poll | null>(null);
 
   const query = useInfiniteQuery({
     queryKey: ['polls'],
@@ -188,16 +190,20 @@ export default function PollsScreen() {
               <KlinkCard style={styles.card}>
                 <View style={styles.cardTop}>
                   <Text style={[styles.question, { color: theme.text }]}>{item.question}</Text>
-                  <View
+                  {/* Tap "Open" to see the full detailed results in a sheet */}
+                  <TouchableOpacity
+                    onPress={() => { haptics.light(); setDetailPoll(item); }}
                     style={[
                       styles.stateBadge,
                       { backgroundColor: item.open ? 'rgba(34,197,94,0.15)' : 'rgba(139,143,168,0.15)' },
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open full results for: ${item.question}`}
                   >
                     <Text style={[styles.stateText, { color: item.open ? Colors.success : Colors.darkMuted }]}>
-                      {item.open ? 'Open' : 'Closed'}
+                      {item.open ? 'Open' : 'Closed'} ›
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 <PollBody
@@ -270,6 +276,11 @@ export default function PollsScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* Detail / results sheet — opened by the "Open" tag on a poll */}
+      {detailPoll && (
+        <PollDetailModal poll={detailPoll} onClose={() => setDetailPoll(null)} />
       )}
 
       {/* Create modal */}
@@ -369,6 +380,116 @@ export default function PollsScreen() {
       </Modal>
 
     </View>
+  );
+}
+
+// ─── Poll detail sheet — full results, opened by the "Open" tag ───────────────
+// A slide-up sheet showing the total number of voters and, for every option,
+// a full-width bar with its percentage and vote count — the "in detail" view.
+function PollDetailModal({ poll, onClose }: { poll: Poll; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
+    queryKey: ['poll-results', poll.id],
+    queryFn: () => pollsApi.getResults(poll.id),
+    // Live while the poll is still open
+    refetchInterval: poll.open ? 15_000 : false,
+  });
+
+  const total = data?.totalVotes ?? 0;
+  // Highlight the leading option(s)
+  const topVotes = data ? Math.max(0, ...data.results.map((r) => r.votes)) : 0;
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.detailBackdrop}>
+        <View style={[styles.detailSheet, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, styles.detailGlass]} />
+
+          <View style={styles.detailGrabber} />
+
+          <View style={styles.detailHeader}>
+            <View
+              style={[
+                styles.stateBadge,
+                { backgroundColor: poll.open ? 'rgba(34,197,94,0.15)' : 'rgba(139,143,168,0.15)' },
+              ]}
+            >
+              <Text style={[styles.stateText, { color: poll.open ? Colors.success : Colors.darkMuted }]}>
+                {poll.open ? 'Open' : 'Closed'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => { haptics.light(); onClose(); }}
+              style={styles.detailClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close results"
+            >
+              <Text style={styles.detailCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.detailQuestion}>{poll.question}</Text>
+          <Text style={styles.detailTotal}>
+            {isLoading
+              ? 'Loading results…'
+              : `${total} ${total === 1 ? 'member has' : 'members have'} voted`}
+          </Text>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={styles.detailScroll}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.gold} />
+            }
+          >
+            {isError ? (
+              <View style={styles.detailErrorWrap}>
+                <Text style={styles.detailErrorText}>Couldn't load the results.</Text>
+                <TouchableOpacity onPress={() => refetch()} style={styles.detailRetry} accessibilityRole="button" accessibilityLabel="Try again">
+                  <Text style={styles.manageLinkText}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              poll.options.map((opt) => {
+                const r = data?.results.find((x) => x.option === opt);
+                const votes = r?.votes ?? 0;
+                const pct = r?.percentage ?? 0;
+                const leading = !!data && total > 0 && votes === topVotes;
+                return (
+                  <View key={opt} style={styles.detailRow}>
+                    <View style={styles.detailRowTop}>
+                      <Text
+                        style={[styles.detailOption, leading && styles.detailOptionLeading]}
+                        numberOfLines={2}
+                      >
+                        {leading ? '★ ' : ''}{opt}
+                      </Text>
+                      <Text style={[styles.detailPct, leading && styles.detailOptionLeading]}>
+                        {pct}%
+                      </Text>
+                    </View>
+                    <View style={styles.detailTrack}>
+                      <View
+                        style={[
+                          styles.detailFill,
+                          { width: `${Math.max(pct, 1.5)}%` },
+                          leading && styles.detailFillLeading,
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.detailVotes}>
+                      {votes} {votes === 1 ? 'vote' : 'votes'}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -626,4 +747,66 @@ const styles = StyleSheet.create({
   resultPct: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
   resultTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
   resultFill: { height: 8, borderRadius: 4, backgroundColor: Colors.gold },
+
+  // ── Detail / results sheet ──────────────────────────────────────────────────
+  detailBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  detailSheet: {
+    borderTopLeftRadius: BorderRadius.xxl,
+    borderTopRightRadius: BorderRadius.xxl,
+    overflow: 'hidden',
+    paddingHorizontal: Spacing.pagePadding,
+    paddingTop: Spacing.sm,
+    maxHeight: '85%',
+  },
+  detailGlass: {
+    borderTopLeftRadius: BorderRadius.xxl,
+    borderTopRightRadius: BorderRadius.xxl,
+    backgroundColor: 'rgba(26,31,62,0.94)',
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  detailGrabber: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    marginBottom: Spacing.md,
+  },
+  detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  detailClose: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  detailCloseText: { color: 'rgba(255,255,255,0.7)', fontSize: 18, fontWeight: FontWeight.bold },
+  detailQuestion: {
+    color: Colors.white,
+    fontSize: FontSize.h4,
+    fontWeight: FontWeight.bold,
+    lineHeight: FontSize.h4 * 1.3,
+    marginTop: Spacing.sm,
+  },
+  detailTotal: {
+    color: Colors.gold,
+    fontSize: FontSize.small,
+    fontWeight: FontWeight.semiBold,
+    letterSpacing: LetterSpacing.wide,
+    marginTop: 4,
+    marginBottom: Spacing.md,
+  },
+  detailScroll: { flexGrow: 0 },
+  detailRow: { marginBottom: Spacing.md, gap: 6 },
+  detailRowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
+  detailOption: { flex: 1, color: '#F5F0FF', fontSize: FontSize.body, fontWeight: FontWeight.medium },
+  detailOptionLeading: { color: Colors.gold, fontWeight: FontWeight.bold },
+  detailPct: { color: '#F5F0FF', fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  detailTrack: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  detailFill: { height: 12, borderRadius: 6, backgroundColor: 'rgba(244,164,41,0.55)' },
+  detailFillLeading: { backgroundColor: Colors.gold },
+  detailVotes: { color: 'rgba(245,240,255,0.6)', fontSize: FontSize.caption },
+  detailErrorWrap: { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xl },
+  detailErrorText: { color: 'rgba(245,240,255,0.7)', fontSize: FontSize.small },
+  detailRetry: { minHeight: 44, justifyContent: 'center' },
 });
