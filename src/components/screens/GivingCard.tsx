@@ -31,7 +31,7 @@ export function GivingCard({ type, amount, date, status, index = 0, onPress }: G
   const [from, to] = TYPE_COLORS[type] ?? [Colors.darkMuted, Colors.darkMuted];
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.fast} style={styles.wrap}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.fast} style={styles.wrap}>
       <TouchableOpacity
         onPress={() => { haptics.light(); onPress?.(); }}
         activeOpacity={0.8}

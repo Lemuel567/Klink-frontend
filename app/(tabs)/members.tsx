@@ -19,6 +19,7 @@ import { useDebounce } from '../../src/hooks/useDebounce';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { LinearGradient } from 'expo-linear-gradient';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Leaders can register members WITHOUT smartphones (QR card + SMS, no app account)
 const CAN_REGISTER = ['PASTOR', 'ELDER', 'MANAGER'];
@@ -72,7 +73,7 @@ export default function MembersScreen() {
       >
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Members</Text>
+            <TypewriterText text="Members" style={styles.headerTitle} charDelayMs={42} />
             <Text style={styles.headerSub}>{data?.pages[0]?.totalElements ?? 0} members</Text>
           </View>
           {canRegister && (

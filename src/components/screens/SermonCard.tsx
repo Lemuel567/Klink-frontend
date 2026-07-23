@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { KlinkCard } from '../common/KlinkCard';
 import { ScrollReveal } from '../animations/ScrollReveal';
 import { Sermon } from '../../api/sermons';
-import { Colors, Gradients } from '../../theme/colors';
+import { Colors } from '../../theme/colors';
 import { FontSize, FontWeight } from '../../theme/typography';
 import { BorderRadius, Spacing } from '../../theme/spacing';
 import { useTheme } from '../../hooks/useTheme';
@@ -24,15 +24,16 @@ export function SermonCard({ sermon, index = 0, onPress, featured = false }: Pro
   const height = featured ? 220 : 140;
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.list}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.list}>
       <KlinkCard onPress={onPress} padded={false} style={[styles.card, featured && styles.featured]}>
-        {/* Artwork / gradient background */}
+        {/* Cover — the tt worship photo under a purple stained-glass tint */}
         <View style={[styles.artwork, { height }]}>
-          <LinearGradient
-            colors={Gradients.worship}
-            start={{ x: 0.2, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <Image
+            source={require('../../../assets/images/tt.jpg')}
             style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={250}
           />
           {/* Stained glass overlay effect */}
           <View style={styles.stainedGlass} />

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -22,6 +22,7 @@ import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { ParticleSystem } from '../../src/components/animations/ParticleSystem';
+import { ModalPhotoBackground } from '../../src/components/common/ModalPhotoBackground';
 import { HandsRaised } from '../../src/components/worship';
 import { paymentsApi, OnlinePayment, OnlinePaymentType, paymentTypeLabel } from '../../src/api/payments';
 import { Colors, Gradients } from '../../src/theme/colors';
@@ -135,11 +136,18 @@ export default function PayScreen() {
     }
   };
 
+  // Stop the verify loop the moment this modal unmounts — otherwise a
+  // dismissed payment sheet keeps polling and calling setState for 30s.
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
+
   const pollForResult = useCallback(async (reference: string) => {
     setPhase('verifying');
     for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+      if (!aliveRef.current) return;
       try {
         const payment = await paymentsApi.verify(reference);
+        if (!aliveRef.current) return;
         if (payment.status === 'SUCCESS') {
           setCompleted(payment);
           setPhase('success');
@@ -162,6 +170,7 @@ export default function PayScreen() {
       }
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
+    if (!aliveRef.current) return;
     setErrorMsg("We couldn't confirm the payment yet. If you completed it, it will appear in your history shortly.");
     setPhase('failed');
     haptics.error();
@@ -218,8 +227,9 @@ export default function PayScreen() {
   const accentColor = isProject ? Colors.gold : selected?.color ?? Colors.gold;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
+    // Modal screens sit ABOVE the app's shared photo backdrop, so this screen
+    // carries its own rotating worship photos — no more flat ash background.
+    <ModalPhotoBackground overlayOpacity={0.62} overlayColor="#1A0533" style={styles.container}>
       <View style={styles.heroArt} pointerEvents="none">
         <HandsRaised width={SCREEN_W} height={180} />
       </View>
@@ -426,7 +436,7 @@ export default function PayScreen() {
           </Animated.View>
         </Animated.View>
       )}
-    </View>
+    </ModalPhotoBackground>
   );
 }
 

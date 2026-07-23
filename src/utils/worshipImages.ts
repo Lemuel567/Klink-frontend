@@ -41,6 +41,10 @@ export const WorshipImages = {
   // Architectural interior — used for the Facilities tile (church hub), never
   // in the worship rotation (not a worship scene).
   churchInterior1: require('../../assets/images/church/church-interior-1.jpg') as ImageSourcePropType,
+
+  // User-supplied 2026-07-23 (np.avif from Desktop) — AVIF decodes natively
+  // via expo-image; Metro SDK 54 bundles .avif assets.
+  worshipNp1: require('../../assets/images/church/np.avif') as ImageSourcePropType,
 };
 
 /**
@@ -59,6 +63,7 @@ export const WorshipPhotoArray: ImageSourcePropType[] = [
   WorshipImages.prayer1,
   WorshipImages.worshipHands4,
   WorshipImages.praiseNature1,
+  WorshipImages.worshipNp1,
 ];
 
 /** Alternate photos by index — adjacent items never repeat. */

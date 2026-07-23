@@ -19,7 +19,7 @@ import { FloatingElement } from '../../src/components/animations/FloatingElement
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { Congregation } from '../../src/components/worship';
-import { RotatingBackground } from '../../src/components/common/RotatingBackground';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 import { authApi } from '../../src/api/auth';
 import { useAuthStore } from '../../src/store/authStore';
 import { useHaptics } from '../../src/hooks/useHaptics';
@@ -98,10 +98,15 @@ export default function LoginScreen() {
   }, []);
 
   return (
-    <RotatingBackground
-      overlayColors={['rgba(10,5,32,0.35)', 'rgba(10,5,32,0.65)', 'rgba(10,5,32,0.9)'] as const}
-      style={styles.container}
-    >
+    // The rotating worship photos come from the ONE global RotatingBackground
+    // behind the transparent stack (_layout.tsx). This veil only adds the
+    // difference between the global underlay [.45/.6/.75] and login's intended
+    // [.35/.65/.9] — rendering a second full rotation here doubled GPU work.
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['rgba(10,5,32,0)', 'rgba(10,5,32,0.13)', 'rgba(10,5,32,0.6)'] as const}
+        style={StyleSheet.absoluteFill}
+      />
       <LightBeam opacity={0.1} />
 
       {/* Ambient light blobs (ui-ux-pro-max Cinema Mobile spec) — slow-drifting
@@ -146,10 +151,15 @@ export default function LoginScreen() {
               <Text style={styles.wordmark}>KLINK</Text>
             </View>
             <Text style={styles.eyebrow}>Church community · Ghana</Text>
-            <Text style={styles.displayLine}>
-              Welcome{'\n'}
-              <Text style={styles.displayItalic}>home.</Text>
-            </Text>
+            <Text style={styles.displayLine}>Welcome</Text>
+            {/* "home." writes itself — the first living text you see */}
+            <TypewriterText
+              text="home."
+              style={[styles.displayLine, styles.displayItalic]}
+              startDelayMs={700}
+              charDelayMs={110}
+              cursor
+            />
             <View style={styles.mastheadRule} />
           </View>
 
@@ -265,7 +275,7 @@ export default function LoginScreen() {
           </ScrollReveal>
         </ScrollView>
       </KeyboardAvoidingView>
-    </RotatingBackground>
+    </View>
   );
 }
 

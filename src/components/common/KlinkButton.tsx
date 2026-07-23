@@ -8,9 +8,13 @@ import {
   ViewStyle,
 } from 'react-native';
 import Animated, {
+  Easing,
+  interpolate,
   useSharedValue,
   useAnimatedStyle,
+  withSequence,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHaptics } from '../../hooks/useHaptics';
@@ -53,14 +57,30 @@ export function KlinkButton({
   const haptics = useHaptics();
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
+  const flash = useSharedValue(0);
+  const ring = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateY: translateY.value }],
   }));
 
+  // Light sweep across the button face at the moment of the pop
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+
+  // Gold shockwave ring bursting OUTWARD around the pill — visible around the
+  // thumb even while it covers the button itself.
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(ring.value, [0, 0.12, 1], [0, 0.9, 0]),
+    transform: [
+      { scaleX: interpolate(ring.value, [0, 1], [1, 1.18]) },
+      { scaleY: interpolate(ring.value, [0, 1], [1, 1.9]) },
+    ],
+  }));
+
   const handlePressIn = useCallback(() => {
     haptics.light();
-    scale.value = withSpring(0.96, SpringConfig.snappy);
+    // Anticipation: a quick squeeze down…
+    scale.value = withSpring(0.93, SpringConfig.snappy);
     translateY.value = withSpring(2, SpringConfig.snappy);
   }, []);
 
@@ -71,8 +91,37 @@ export function KlinkButton({
 
   const handlePress = useCallback(() => {
     haptics.medium();
+    // …then the POP: overshoot well past resting size and bounce back, the
+    // face flashes bright, and a gold shockwave ring bursts outward.
+    scale.value = withSequence(
+      withSpring(1.12, { damping: 5, stiffness: 340, mass: 0.6 }),
+      withSpring(1, SpringConfig.bouncy),
+    );
+    translateY.value = withSequence(
+      withSpring(-3, { damping: 5, stiffness: 340, mass: 0.6 }),
+      withSpring(0, SpringConfig.default),
+    );
+    flash.value = withSequence(
+      withTiming(0.6, { duration: 70 }),
+      withTiming(0, { duration: 320 }),
+    );
+    ring.value = 0;
+    ring.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) });
     onPress?.();
   }, [onPress]);
+
+  // White wash overlay — rendered inside each variant's clipped pill
+  const popFlash = (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFillObject, styles.flash, flashStyle]}
+    />
+  );
+
+  // Shockwave — rendered on the UNCLIPPED touchable so it can spill outward
+  const popRing = (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.ring, ringStyle]} />
+  );
 
   const isDisabled = disabled || loading;
 
@@ -115,7 +164,9 @@ export function KlinkButton({
         >
           <View pointerEvents="none" style={styles.lightEdge} />
           {labelRow(Colors.purple, styles.labelPrimary)}
+          {popFlash}
         </LinearGradient>
+        {popRing}
       </AnimatedTouchable>
     );
   }
@@ -140,7 +191,9 @@ export function KlinkButton({
         <View style={[styles.base, styles.clip, styles.secondaryBase]}>
           <View pointerEvents="none" style={styles.lightEdgeSoft} />
           {labelRow(Colors.gold, styles.labelSecondary)}
+          {popFlash}
         </View>
+        {popRing}
       </AnimatedTouchable>
     );
   }
@@ -170,7 +223,9 @@ export function KlinkButton({
         >
           <View pointerEvents="none" style={styles.lightEdgeSoft} />
           {labelRow(Colors.white, styles.labelWhite)}
+          {popFlash}
         </LinearGradient>
+        {popRing}
       </AnimatedTouchable>
     );
   }
@@ -194,7 +249,9 @@ export function KlinkButton({
     >
       <View style={[styles.base, styles.ghostBase]}>
         {labelRow(Colors.gold, styles.labelGhost)}
+        {popFlash}
       </View>
+      {popRing}
     </AnimatedTouchable>
   );
 }
@@ -250,6 +307,18 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  // White wash that flashes over the face on the pop — its own radius so it
+  // stays pill-shaped even where the container doesn't clip (ghost).
+  flash: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.full,
+  },
+  // Gold shockwave outline that bursts outward on the pop
+  ring: {
+    borderRadius: BorderRadius.full,
+    borderWidth: 2.5,
+    borderColor: Colors.gold,
   },
   // Tracked uppercase label — the jewelry-button voice. Smaller size + wide
   // tracking stays narrower than the old 16px sentence-case label.

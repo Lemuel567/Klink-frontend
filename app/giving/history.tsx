@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -15,12 +16,13 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { formatCurrency, formatDate } from '../../src/utils/formatters';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { StaggerDelay } from '../../src/theme/animations';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 export default function GivingHistoryScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch, isRefetching } =
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({
       queryKey: ['giving-history'],
       queryFn: ({ pageParam = 0 }) => givingApi.getMyPayments({ page: pageParam, size: PAGE_SIZE }),
@@ -34,18 +36,33 @@ export default function GivingHistoryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.worship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Giving history</Text>
+        <TypewriterText text="Giving history" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
         <Text style={styles.totalLabel}>Total across all time</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>
           {Array.from({ length: 8 }, (_, i) => <StatCardSkeleton key={i} />)}
+        </View>
+      ) : isError ? (
+        // A failed load must never masquerade as "no giving records yet"
+        <View style={styles.empty}>
+          <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+            Couldn't load your giving history. Pull down or tap to retry.
+          </Text>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading giving history"
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text style={{ color: Colors.gold, fontWeight: '600' }}>Try again</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlashList

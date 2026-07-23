@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
+import { ModalPhotoBackground } from '../../src/components/common/ModalPhotoBackground';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkAvatar } from '../../src/components/common/KlinkAvatar';
 import { KlinkToast } from '../../src/components/common/KlinkToast';
@@ -29,6 +30,7 @@ import { FontSize, FontWeight } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const CATEGORIES = ['ADULT', 'YOUTH', 'CHILDREN'] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -180,14 +182,11 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* ── Header ── */}
-      <LinearGradient
-        colors={Gradients.darkWorship}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 12 }]}
-      >
+    // Modal screens sit ABOVE the shared photo backdrop, so the WHOLE screen
+    // carries its own rotating worship photos — glass cards float over them.
+    <ModalPhotoBackground overlayOpacity={0.62} overlayColor="#1A0533" style={styles.container}>
+      {/* ── Header — transparent over the full-screen photo ── */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.headerBtn}
@@ -198,7 +197,7 @@ export default function EditProfileScreen() {
           <Text style={styles.headerBack}>‹</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <TypewriterText text="Edit Profile" style={styles.headerTitle} charDelayMs={42} />
 
         <TouchableOpacity
           onPress={handleSave}
@@ -212,7 +211,7 @@ export default function EditProfileScreen() {
             Save
           </Text>
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -274,6 +273,15 @@ export default function EditProfileScreen() {
                 autoCapitalize="words"
                 returnKeyType="next"
                 editable={!isPending}
+                // Long names must FIT the box, not clip at its edge — step the
+                // font down as the name grows (TextInput has no auto-shrink).
+                style={
+                  fullName.length > 30
+                    ? { fontSize: 12.5 }
+                    : fullName.length > 22
+                      ? { fontSize: 14 }
+                      : undefined
+                }
               />
 
               <KlinkInput
@@ -357,7 +365,7 @@ export default function EditProfileScreen() {
           onHide={() => setToast(null)}
         />
       )}
-    </View>
+    </ModalPhotoBackground>
   );
 }
 

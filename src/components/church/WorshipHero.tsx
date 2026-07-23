@@ -5,6 +5,7 @@ import { Image as ExpoImage } from 'expo-image';
 import Animated from 'react-native-reanimated';
 import { LightBeam } from '../animations/LightBeam';
 import { RotatingBackground } from '../common/RotatingBackground';
+import { TypewriterText } from '../animations/TypewriterText';
 import { Colors, Gradients } from '../../theme/colors';
 import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
@@ -99,8 +100,11 @@ export function WorshipHero({
       <View style={styles.content}>
         {children}
         <Text style={styles.dateEyebrow}>{dateLabel()}</Text>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        {/* The greeting writes itself — the app's first living words each visit */}
+        <TypewriterText text={title} style={styles.title} startDelayMs={350} charDelayMs={45} />
+        {subtitle && (
+          <TypewriterText text={subtitle} style={styles.subtitle} startDelayMs={1100} charDelayMs={22} />
+        )}
       </View>
     </View>
   );

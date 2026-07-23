@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -121,16 +122,33 @@ export default function SermonDetailScreen() {
   const progressPercent =
     audioDuration && audioDuration > 0 ? (audioPosition / audioDuration) * 100 : 0;
 
-  if (!sermon && !isLoading) return null;
+  // Failed/404 fetch must not render a blank screen with no way back.
+  if (!sermon && !isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <PhotoHeader style={[styles.hero, { paddingTop: insets.top + 16 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+        </PhotoHeader>
+        <View style={{ padding: Spacing.pagePadding, alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xl }}>
+          <Text style={{ fontSize: 40 }}>📖</Text>
+          <Text style={{ color: theme.text, fontSize: FontSize.h4, fontWeight: FontWeight.bold }}>
+            Couldn't load this sermon
+          </Text>
+          <Text style={{ color: theme.textMuted, fontSize: FontSize.small, textAlign: 'center' }}>
+            It may have been removed, or your connection dropped. Go back and try again.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Hero */}
-        <LinearGradient
-          colors={Gradients.worship}
-          style={[styles.hero, { paddingTop: insets.top + 16 }]}
-        >
+        <PhotoHeader style={[styles.hero, { paddingTop: insets.top + 16 }]}>
           <View style={styles.heroTopRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
               <Text style={styles.backIcon}>‹</Text>
@@ -153,7 +171,7 @@ export default function SermonDetailScreen() {
           <Text style={styles.sermonTitle}>{sermon?.title ?? ''}</Text>
           <Text style={styles.preacher}>{sermon?.preacher}</Text>
           <Text style={styles.date}>{sermon?.sermonDate ? formatDate(sermon.sermonDate) : ''}</Text>
-        </LinearGradient>
+        </PhotoHeader>
 
         <View style={styles.content}>
           {sermon?.scripture && (

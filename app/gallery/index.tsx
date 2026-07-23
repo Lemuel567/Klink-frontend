@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,6 +32,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const { width } = Dimensions.get('window');
 const GAP = Spacing.sm;
@@ -96,18 +98,19 @@ export default function GalleryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.stage} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Gallery</Text>
+        <TypewriterText text="Gallery" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Moments from our church family</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={styles.skeletonGrid}>

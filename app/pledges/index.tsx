@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +36,7 @@ import { useRole } from '../../src/store/authStore';
 import { formatCurrency } from '../../src/utils/formatters';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Backend rules: record pledge + record payment = FinSec only;
 // "all pledges" view = FinSec / Pastor / Elder; everyone sees their own.
@@ -129,16 +131,17 @@ export default function PledgesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.darkWorship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pledges</Text>
+        <TypewriterText text="Pledges" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Promises made to the work of God</Text>
 
         {canViewAll && (
@@ -158,12 +161,21 @@ export default function PledgesScreen() {
             ))}
           </View>
         )}
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>
           {Array.from({ length: 5 }, (_, i) => <AnnouncementSkeleton key={i} />)}
         </View>
+      ) : query.isError ? (
+        // A failed load must never masquerade as "no pledges yet"
+        <EmptyState
+          icon="⚠️"
+          title="Couldn't load pledges"
+          subtitle="Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => query.refetch()}
+        />
       ) : (
         <FlashList
           data={pledges}

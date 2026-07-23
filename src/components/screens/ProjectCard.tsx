@@ -32,7 +32,7 @@ export function ProjectCard({ project, index = 0, onPress }: Props) {
   const statusColor = STATUS_COLORS[project.status] ?? Colors.darkMuted;
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.list}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.list}>
       <KlinkCard onPress={onPress} padded={false} style={styles.card}>
         {/* Header gradient */}
         <LinearGradient

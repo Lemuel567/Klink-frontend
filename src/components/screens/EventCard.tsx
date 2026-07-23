@@ -24,7 +24,7 @@ export function EventCard({ event, index = 0, onPress }: Props) {
   const isUpcoming = eventDate > new Date();
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.list}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.list}>
       <KlinkCard onPress={onPress} style={styles.card}>
         <View style={styles.row}>
           {/* Date block */}

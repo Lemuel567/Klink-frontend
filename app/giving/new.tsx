@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
+import { ModalPhotoBackground } from '../../src/components/common/ModalPhotoBackground';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
@@ -142,8 +143,7 @@ export default function NewGivingScreen() {
   // Non-FinSec: read-only info screen
   if (role !== 'FINANCIAL_SECRETARY') {
     return (
-      <View style={styles.container}>
-        <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
+      <ModalPhotoBackground overlayOpacity={0.62} overlayColor="#1A0533" style={styles.container}>
         <View style={[styles.infoWrap, { paddingTop: insets.top + 32 }]}>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -172,16 +172,15 @@ export default function NewGivingScreen() {
             <Text style={styles.historyBtnText}>View my giving history</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ModalPhotoBackground>
     );
   }
 
   const selected = GIVING_TYPES.find((t) => t.key === type)!;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={Gradients.veil} style={StyleSheet.absoluteFill} />
-
+    // Modal screens sit ABOVE the shared photo backdrop — carry our own photos
+    <ModalPhotoBackground overlayOpacity={0.62} overlayColor="#1A0533" style={styles.container}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}
@@ -367,7 +366,7 @@ export default function NewGivingScreen() {
           </ScrollReveal>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </ModalPhotoBackground>
   );
 }
 

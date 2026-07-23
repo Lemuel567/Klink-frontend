@@ -7,6 +7,8 @@ export interface Poll {
   closesAt?: string;
   open: boolean;
   voted: boolean;
+  /** The option THIS member currently holds, or null/undefined if not voted. */
+  votedOption?: string | null;
   createdBy: string;
   createdAt: string;
 }
@@ -38,7 +40,7 @@ export const pollsApi = {
   getAll: (params?: { page?: number; size?: number }) =>
     apiClient.get<PollPage>('/polls', { params }).then((r) => r.data),
 
-  // All: cast a vote — one vote per member enforced
+  // All: cast OR change a vote (one row per member; open polls can be changed)
   vote: (pollId: string, selectedOption: string) =>
     apiClient.post<Poll>(`/polls/${pollId}/vote`, { selectedOption }).then((r) => r.data),
 

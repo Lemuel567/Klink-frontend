@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -27,6 +28,7 @@ import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { formatDate } from '../../src/utils/formatters';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Roles that can edit church settings
 const CAN_EDIT = ['PASTOR', 'ELDER'];
@@ -190,12 +192,7 @@ export default function ChurchSettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* ── Header ── */}
-      <LinearGradient
-        colors={Gradients.darkWorship}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 12 }]}
-      >
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.headerBtn}
@@ -206,7 +203,7 @@ export default function ChurchSettingsScreen() {
           <Text style={styles.headerBack}>‹</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Church Settings</Text>
+        <TypewriterText text="Church Settings" style={styles.headerTitle} charDelayMs={42} />
 
         {canEdit ? (
           <TouchableOpacity
@@ -222,7 +219,7 @@ export default function ChurchSettingsScreen() {
         ) : (
           <View style={styles.headerBtn} />
         )}
-      </LinearGradient>
+      </PhotoHeader>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

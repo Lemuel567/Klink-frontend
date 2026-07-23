@@ -308,6 +308,16 @@ export default function ProjectDetailScreen() {
               onPress={() => { haptics.medium(); setRecording(true); }}
             />
           )}
+          {/* Explain WHY there's no contribute button, instead of just hiding it */}
+          {!CONTRIBUTABLE.includes(project.status) && (
+            <Text style={styles.contribNote}>
+              {project.status === 'PROPOSED'
+                ? 'Awaiting approval — once a Pastor approves this project, members can contribute online and the Financial Secretary can record offline gifts.'
+                : project.status === 'COMPLETED'
+                  ? 'This project is complete. Thank you to everyone who gave.'
+                  : 'This project is no longer receiving contributions.'}
+            </Text>
+          )}
         </LinearGradient>
 
         {/* Details */}
@@ -642,6 +652,12 @@ const styles = StyleSheet.create({
   title: { color: Colors.white, fontSize: FontSize.h2, fontWeight: FontWeight.bold, letterSpacing: LetterSpacing.tight },
   desc: { color: 'rgba(245,245,245,0.75)', fontSize: FontSize.body, lineHeight: FontSize.body * 1.6 },
   thermo: { marginTop: Spacing.sm },
+  contribNote: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: FontSize.small,
+    lineHeight: FontSize.small * 1.5,
+    marginTop: Spacing.sm,
+  },
   section: { margin: Spacing.pagePadding, borderRadius: BorderRadius.xl, padding: Spacing.md, gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.caption, fontWeight: FontWeight.bold, letterSpacing: LetterSpacing.widest, marginBottom: 4 },
   infoRow: {

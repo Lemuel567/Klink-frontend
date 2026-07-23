@@ -21,9 +21,30 @@ export interface PaymentPage {
   number: number;
 }
 
+export interface CollectionsLine {
+  type: 'OFFERING' | 'TITHE' | 'WELFARE' | 'SPECIAL_CONTRIBUTION';
+  manual: number;   // recorded by hand (cash counted)
+  online: number;   // taken automatically through the app
+  total: number;
+}
+
+export interface CollectionsSummary {
+  from: string;
+  to: string;
+  lines: CollectionsLine[];
+  manualTotal: number;
+  onlineTotal: number;
+  grandTotal: number;
+}
+
 export { Member, MemberPage };
 
 export const givingApi = {
+  // FinSec / Pastor / Elder: reconcile collections (manual + app) for a day or
+  // period. No dates → current month; a single date (from=to) → one service day.
+  getCollectionsSummary: (params?: { from?: string; to?: string }) =>
+    apiClient.get<CollectionsSummary>('/finances/summary', { params }).then((r) => r.data),
+
   // Backend: { serviceDate: LocalDate, amount: BigDecimal } — no paymentMonth
   recordOffering: (body: { serviceDate: string; amount: number }) =>
     apiClient.post<Payment>('/finances/offering', body).then((r) => r.data),

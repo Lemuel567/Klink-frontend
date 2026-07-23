@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ImageSourcePropType, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { AppState, ImageSourcePropType, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -59,14 +59,32 @@ export function RotatingBackground({
   // together, so swaps stay seamless. Children/overlay are NOT scaled.
   const breathScale = useSharedValue(1);
 
+  // Track foreground state so neither the Ken Burns loop nor the crossfade
+  // timer keeps burning GPU/battery while the app is backgrounded.
+  const appActive = useRef(AppState.currentState === 'active');
+
   useEffect(() => {
-    if (reducedMotion) return;
-    breathScale.value = withRepeat(
-      withTiming(1.05, { duration: 12000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true,
-    );
-    return () => cancelAnimation(breathScale);
+    const startBreath = () => {
+      if (reducedMotion) return;
+      breathScale.value = withRepeat(
+        withTiming(1.05, { duration: 12000, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      );
+    };
+    startBreath();
+    const sub = AppState.addEventListener('change', (state) => {
+      appActive.current = state === 'active';
+      if (state === 'active') {
+        startBreath();
+      } else {
+        cancelAnimation(breathScale);
+      }
+    });
+    return () => {
+      sub.remove();
+      cancelAnimation(breathScale);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
 
@@ -82,7 +100,7 @@ export function RotatingBackground({
   useEffect(() => {
     if (photos.length < 2) return;
     const interval = setInterval(() => {
-      if (animating.current) return;
+      if (animating.current || !appActive.current) return;
       animating.current = true;
       const shownIndex = nextIndexRef.current;
       topOpacity.value = withTiming(

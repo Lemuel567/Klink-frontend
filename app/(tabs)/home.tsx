@@ -10,10 +10,13 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -25,7 +28,7 @@ import { router } from 'expo-router';
 import { WorshipHero } from '../../src/components/church/WorshipHero';
 import { ChurchBuilding } from '../../src/components/worship';
 import { CountUp } from '../../src/components/common/CountUp';
-import { ScriptureReveal } from '../../src/components/church/ScriptureReveal';
+import { VerseReveal } from '../../src/components/church/VerseReveal';
 import { TitheThermometer } from '../../src/components/church/TitheThermometer';
 import { AnnouncementCard } from '../../src/components/screens/AnnouncementCard';
 import { SermonCard } from '../../src/components/screens/SermonCard';
@@ -182,7 +185,8 @@ export default function HomeScreen() {
                 <Text style={styles.seeAll}>Devotionals ›</Text>
               </TouchableOpacity>
             </View>
-            <ScriptureReveal verse={verse.verse} reference={verse.reference} />
+            {/* The verse writes itself — clean editorial quote, re-writes on every visit */}
+            <VerseReveal verse={verse.verse} reference={verse.reference} />
           </View>
         </ScrollReveal>
 
@@ -428,9 +432,12 @@ function QuickActionButton({
   const haptics = useHaptics();
   const scale = useSharedValue(1);
   const bob = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
 
-  // Idle floating bob — 150ms offset per tile so the 8-tile wave stays gentle
+  // Idle floating bob — 150ms offset per tile so the 8-tile wave stays gentle.
+  // Gated by reduce-motion like every other looping animation in the app.
   React.useEffect(() => {
+    if (reducedMotion) return;
     bob.value = withDelay(
       index * 150,
       withRepeat(
@@ -439,8 +446,9 @@ function QuickActionButton({
         true,
       ),
     );
+    return () => cancelAnimation(bob);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: bob.value }, { scale: scale.value }],
@@ -451,7 +459,13 @@ function QuickActionButton({
       <TouchableOpacity
         activeOpacity={0.9}
         onPressIn={() => { scale.value = withTiming(0.92, { duration: 90 }); }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 8, stiffness: 200 }); }}
+        onPressOut={() => {
+          // POP: overshoot past rest, then settle — the tile jumps out at you
+          scale.value = withSequence(
+            withSpring(1.1, { damping: 5, stiffness: 340, mass: 0.6 }),
+            withSpring(1, { damping: 10, stiffness: 120, mass: 1 }),
+          );
+        }}
         onPress={() => { haptics.medium(); router.push(action.route as any); }}
         accessibilityRole="button"
         accessibilityLabel={action.label}

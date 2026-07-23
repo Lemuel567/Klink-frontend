@@ -88,6 +88,7 @@ export default function ChangePasswordScreen() {
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
+         
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>

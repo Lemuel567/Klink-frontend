@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +35,7 @@ import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { StaggerDelay } from '../../src/theme/animations';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Role gates match the backend exactly: create/edit = Pastor + Manager;
 // soft delete = Pastor + Elder (FacilityService).
@@ -190,18 +192,19 @@ export default function FacilitiesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.darkWorship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Facilities</Text>
+        <TypewriterText text="Facilities" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Church assets and properties</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>

@@ -33,7 +33,7 @@ export function PrayerCard({ prayer, index = 0, canRespond, canDelete, onRespond
   const accentColor = isPrivate ? Colors.purpleLight : Colors.gold;
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.list}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.list}>
       <KlinkCard
         onPress={() => {
           haptics.light();

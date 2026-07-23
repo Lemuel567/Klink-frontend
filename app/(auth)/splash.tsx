@@ -16,6 +16,7 @@ import { LightBeam } from '../../src/components/animations/LightBeam';
 import { FloatingElement } from '../../src/components/animations/FloatingElement';
 import { CrossWithRays } from '../../src/components/worship';
 import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 import { ScreenPhotos } from '../../src/utils/worshipImages';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
@@ -87,8 +88,8 @@ export default function SplashScreen() {
     titleOpacity.value = withDelay(900, withTiming(1, { duration: Duration.medium }));
     titleY.value = withDelay(900, withTiming(0, { duration: Duration.medium, easing: EasingPresets.enter }));
 
-    // Tagline
-    taglineOpacity.value = withDelay(1300, withTiming(1, { duration: Duration.medium }));
+    // Tagline container fades in just before the typewriter starts
+    taglineOpacity.value = withDelay(1100, withTiming(1, { duration: 200 }));
 
     // Navigate at 3s
     const timer = setTimeout(() => {
@@ -162,9 +163,16 @@ export default function SplashScreen() {
         <Animated.Text style={[styles.appName, titleStyle]}>Klink</Animated.Text>
 
         {/* Tagline */}
-        <Animated.Text style={[styles.tagline, taglineStyle]}>
-          Your Church, Connected
-        </Animated.Text>
+        {/* The tagline writes itself as the logo settles */}
+        <Animated.View style={taglineStyle}>
+          <TypewriterText
+            text="Your Church, Connected"
+            style={styles.tagline}
+            startDelayMs={1300}
+            charDelayMs={55}
+            cursor
+          />
+        </Animated.View>
       </View>
     </WatermarkBackground>
   );

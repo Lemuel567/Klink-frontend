@@ -21,7 +21,7 @@ export function MemberCard({ member, index = 0, onPress }: Props) {
   const { theme } = useTheme();
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.list}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.list}>
       <KlinkCard onPress={onPress} style={styles.card}>
         <View style={styles.row}>
           <KlinkAvatar name={member.fullName} photoUrl={member.photoUrl} size={52} />

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +36,7 @@ import { useDebounce } from '../../src/hooks/useDebounce';
 import { useRole } from '../../src/store/authStore';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Leadership that can create groups and appoint the admin (matches backend)
 const CAN_CREATE = ['PASTOR', 'ELDER', 'MANAGER'];
@@ -117,18 +119,19 @@ export default function GroupsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.worship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Groups</Text>
+        <TypewriterText text="Groups" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Ministries and fellowships in your church</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>

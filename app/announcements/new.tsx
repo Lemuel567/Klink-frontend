@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -28,6 +29,7 @@ import { FontSize, FontWeight } from '../../src/theme/typography';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const TARGET_TYPES: AnnouncementTargetType[] = ['ALL', 'ROLES', 'GROUPS', 'MEMBERS', 'CUSTOM'];
 
@@ -122,20 +124,21 @@ export default function NewAnnouncementScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.worship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => { haptics.light(); router.back(); }}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
+         
           >
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>New Announcement</Text>
+          <TypewriterText text="New Announcement" style={styles.headerTitle} charDelayMs={42} />
           <View style={{ width: 60 }} />
         </View>
-      </LinearGradient>
+      </PhotoHeader>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +32,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const CAN_CREATE = ['PASTOR', 'ELDER', 'MANAGER'];
 
@@ -115,18 +117,19 @@ export default function EventsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.heaven} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Events</Text>
+        <TypewriterText text="Events" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>What's happening in your church</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>

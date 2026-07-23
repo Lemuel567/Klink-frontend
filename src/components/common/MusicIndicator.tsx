@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import Animated, {
+  cancelAnimation,
+  useReducedMotion,
   useSharedValue,
   withTiming,
   useAnimatedStyle,
@@ -17,6 +19,7 @@ export function MusicIndicator() {
   const { musicEnabled } = useSoundStore();
   const opacity = useSharedValue(0);
   const noteScale = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
 
   // Track which song is playing so the label updates when songs switch
   const [trackIndex, setTrackIndex] = useState(soundManager.getCurrentTrackIndex());
@@ -30,7 +33,9 @@ export function MusicIndicator() {
 
   useEffect(() => {
     opacity.value = withTiming(musicEnabled ? 1 : 0, { duration: 400 });
-    if (musicEnabled) {
+    // The pulse is decorative — respect reduce-motion (this pill is mounted
+    // over EVERY screen, so an ungated infinite loop is always running).
+    if (musicEnabled && !reducedMotion) {
       noteScale.value = withRepeat(
         withSequence(
           withTiming(1.25, { duration: 700 }),
@@ -40,9 +45,11 @@ export function MusicIndicator() {
         true,
       );
     } else {
+      cancelAnimation(noteScale);
       noteScale.value = withTiming(1, { duration: 200 });
     }
-  }, [musicEnabled]);
+    return () => cancelAnimation(noteScale);
+  }, [musicEnabled, reducedMotion]);
 
   const containerStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const noteStyle = useAnimatedStyle(() => ({

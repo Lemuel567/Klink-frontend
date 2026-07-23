@@ -5,19 +5,23 @@
 # on any network with no firewall rules and no IP pinning. The app detects
 # tunnel-vs-LAN by itself from the Metro host — ENV stays 'wifi' either way.
 #
-# BEFORE RUNNING: close any old terminal windows running the backend or "npm start".
+# RUNS ON ITS OWN PORT (8082) so it can coexist with a plain `npx expo start`
+# hotspot session on 8081 — both modes can be live at the same time; phones
+# just scan whichever QR matches how they're connected.
 # Run with:  powershell -ExecutionPolicy Bypass -File C:\Users\lemue\IdeaProjects\klinkApp\Klink-frontend\start-klink.ps1
 
 # Repos moved off the Desktop on 2026-07-16 — these are the current locations.
 $app = 'C:\Users\lemue\IdeaProjects\klinkApp\Klink-frontend'
 $backendDir = 'C:\Users\lemue\IdeaProjects\klinkApp\Klink-backend'
+$metroPort = 8082   # the hotspot session owns 8081; the tunnel session owns 8082
 $logDir = Join-Path $app '.tunnel-logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
-# ── Guard: Metro port must be free (close old npm start windows first) ─────────
-if (Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue) {
-    Write-Host "Port 8081 is already in use." -ForegroundColor Red
-    Write-Host "Close the terminal window running 'npm start' / 'expo start', then run this script again." -ForegroundColor Yellow
+# ── Guard: OUR port must be free (a previous Start Klink still running?) ───────
+if (Get-NetTCPConnection -LocalPort $metroPort -State Listen -ErrorAction SilentlyContinue) {
+    Write-Host "Port $metroPort is already in use - Start Klink appears to be running already." -ForegroundColor Red
+    Write-Host "Close the previous Start Klink Metro window, then run this again." -ForegroundColor Yellow
+    Write-Host "(A plain 'npx expo start' hotspot session on 8081 is fine and can stay open.)" -ForegroundColor DarkGray
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -55,7 +59,7 @@ Write-Host "[2/4] Starting Cloudflare tunnels..." -ForegroundColor Cyan
 # streams to the log file (*>). The tunnel windows stay blank by design —
 # this launcher window prints the URLs.
 Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$app'; Write-Host 'Backend tunnel running - see launcher window for URL. Do not close.'; & '$cf' tunnel --url http://localhost:8080 *> '$btLog'"
-Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$app'; Write-Host 'Metro tunnel running - see launcher window for URL. Do not close.'; & '$cf' tunnel --url http://localhost:8081 *> '$mtLog'"
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$app'; Write-Host 'Metro tunnel running - see launcher window for URL. Do not close.'; & '$cf' tunnel --url http://localhost:$metroPort *> '$mtLog'"
 
 function Get-TunnelUrl([string]$log) {
     for ($i = 0; $i -lt 60; $i++) {
@@ -88,9 +92,9 @@ $content = [IO.File]::ReadAllText($constants)
 $content = $content -replace "const TUNNEL_API_URL = '[^']*';", "const TUNNEL_API_URL = '$backendUrl/api/v1';"
 [IO.File]::WriteAllText($constants, $content)
 
-# ── 4. Metro, advertising the tunnel URL ────────────────────────────────────────
-Write-Host "[4/4] Starting Metro (Expo)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$app'; `$env:EXPO_PACKAGER_PROXY_URL='$metroUrl'; npx expo start"
+# ── 4. Metro on OUR port, advertising the tunnel URL ───────────────────────────
+Write-Host "[4/4] Starting Metro (Expo) on port $metroPort..." -ForegroundColor Cyan
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$app'; `$env:EXPO_PACKAGER_PROXY_URL='$metroUrl'; npx expo start --port $metroPort"
 
 # ── Done — print the URL + QR ───────────────────────────────────────────────────
 $expUrl = 'exp://' + ($metroUrl -replace '^https://', '')

@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -24,6 +25,7 @@ import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { formatRelativeTime } from '../../src/utils/formatters';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const PRIVILEGED = ['PASTOR', 'ELDER', 'MANAGER', 'FINANCIAL_SECRETARY'];
 
@@ -61,7 +63,7 @@ export default function PaymentHistoryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.glory} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.heroArt} pointerEvents="none">
           <HandsRaised width={300} height={140} />
         </View>
@@ -70,10 +72,11 @@ export default function PaymentHistoryScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Online Giving</Text>
+        <TypewriterText text="Online Giving" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>
           {isPrivileged ? 'All Paystack payments in your church' : 'Your Paystack payment history'}
         </Text>
@@ -103,12 +106,21 @@ export default function PaymentHistoryScreen() {
             </View>
           </View>
         )}
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>
           {Array.from({ length: 6 }, (_, i) => <AnnouncementSkeleton key={i} />)}
         </View>
+      ) : query.isError ? (
+        // A failed load must never masquerade as "no payments yet"
+        <EmptyState
+          icon="⚠️"
+          title="Couldn't load payments"
+          subtitle="Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => query.refetch()}
+        />
       ) : (
         <FlashList
           data={payments}

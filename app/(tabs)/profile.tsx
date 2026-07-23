@@ -281,6 +281,11 @@ export default function ProfileScreen() {
 
       <ScrollReveal delay={200}>
         <View style={[styles.section, { backgroundColor: theme.card }]}>
+          <MenuItem label="Payments" onPress={() => router.push('/payments' as any)} theme={theme} />
+          <MenuItem label="Ask Klink (AI helper)" onPress={() => router.push('/assistant' as any)} theme={theme} />
+          {(user?.role === 'PASTOR' || user?.role === 'ELDER') && (
+            <MenuItem label="Insights" onPress={() => router.push('/analytics' as any)} theme={theme} />
+          )}
           <MenuItem label="Notifications" onPress={() => router.push('/notifications')} theme={theme} />
           {/* Dark-mode toggle removed 2026-07-12 — Klink is dark-only by design */}
           <View style={styles.switchRow}>
@@ -311,6 +316,7 @@ export default function ProfileScreen() {
               trackColor={{ true: Colors.gold, false: Colors.darkSurface }}
             />
           </View>
+
         </View>
       </ScrollReveal>
 

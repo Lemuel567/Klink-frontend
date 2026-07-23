@@ -36,6 +36,7 @@ import { useDebounce } from '../../src/hooks/useDebounce';
 import { useRole } from '../../src/store/authStore';
 import { StaggerDelay } from '../../src/theme/animations';
 import { ATTENDANCE_PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const LEADERS = ['PASTOR', 'ELDER', 'MANAGER'];
 
@@ -142,10 +143,11 @@ export default function AttendanceScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Attendance</Text>
+        <TypewriterText text="Attendance" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Check in and see your record</Text>
 
         {/* Actions */}

@@ -34,6 +34,7 @@ import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole, useUser } from '../../src/store/authStore';
 import { confirmDelete } from '../../src/utils/confirmDelete';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 const LEADERS = ['PASTOR', 'ELDER'];
 
@@ -111,12 +112,13 @@ export default function PrayerRequestsScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.headerTitle}>Prayer Wall</Text>
+            <TypewriterText text="Prayer Wall" style={styles.headerTitle} charDelayMs={42} />
             <Text style={styles.headerSub}>
               {openCount > 0
                 ? `${openCount} request${openCount !== 1 ? 's' : ''} awaiting prayer`

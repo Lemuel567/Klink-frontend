@@ -18,6 +18,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // 2026-07-12: creation is Pastor + Manager ONLY (matches backend)
 const CAN_CREATE = ['PASTOR', 'MANAGER'];
@@ -64,10 +65,11 @@ export default function ProjectsScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Church Projects</Text>
+        <TypewriterText text="Church Projects" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>See what our church is building and achieving</Text>
       </WatermarkBackground>
 

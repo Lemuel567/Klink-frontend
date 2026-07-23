@@ -19,10 +19,18 @@ const LAPTOP_WIFI_IP = '192.168.137.1';
 // ─── BACKEND TUNNEL URL (tunnel mode only) ───────────────────────────────────
 // Started with: npm run tunnel:backend (cloudflared). The trycloudflare URL is
 // RANDOM per run — paste the new one here each session (keep the /api/v1 suffix).
-const TUNNEL_API_URL = 'https://kijiji-tions-keyboards-contributors.trycloudflare.com/api/v1';
+const TUNNEL_API_URL = 'https://alberta-navy-smithsonian-calculations.trycloudflare.com/api/v1';
 
 // ─── BASE URL LOGIC ──────────────────────────────────────────────────────────
 function getBaseUrl(): string {
+  // PRODUCTION GUARD: a release build must NEVER ship pointed at a dev target.
+  // Without this, forgetting to flip ENV before an EAS build would ship an app
+  // that dials the laptop's LAN IP (or a dead tunnel) over cleartext http — a
+  // 100% outage for every installed copy. Dev behaviour is unchanged: __DEV__
+  // is true in Expo Go / dev builds, so the switch below still applies there.
+  if (!__DEV__) {
+    return 'https://api.klink.app/api/v1';
+  }
   switch (ENV) {
     case 'tunnel':
       return TUNNEL_API_URL;

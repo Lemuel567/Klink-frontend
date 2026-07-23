@@ -103,7 +103,28 @@ export default function MemberDetailScreen() {
     );
   }
 
-  if (!member) return null;
+  // Failed/404 fetch: show a message with a way back, never a blank modal.
+  if (!member) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient colors={Gradients.darkWorship} style={[styles.hero, { paddingTop: insets.top + 16 }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+         
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.name}>Couldn't load this member</Text>
+        </LinearGradient>
+        <Text style={{ color: theme.textMuted, textAlign: 'center', padding: 24 }}>
+          The profile may be unavailable, or your connection dropped. Go back and try again.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -117,6 +138,7 @@ export default function MemberDetailScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>

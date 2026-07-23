@@ -116,6 +116,7 @@ export default function RegisterMemberScreen() {
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
+         
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>

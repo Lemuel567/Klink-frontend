@@ -53,4 +53,17 @@ export const sermonsApi = {
   },
 
   delete: (id: string) => apiClient.delete(`/sermons/${id}`).then((r) => r.data),
+
+  // AI-assisted drafting: expands brief notes into a detailed summary.
+  // Nothing is saved server-side — the caller reviews/edits before posting.
+  generateNotes: (params: {
+    title: string;
+    preacher?: string;
+    memoryVerse?: string;
+    scripture?: string;
+    notes: string;
+  }) =>
+    apiClient
+      .post<{ generatedNotes: string }>('/sermons/generate-notes', params)
+      .then((r) => r.data.generatedNotes),
 };

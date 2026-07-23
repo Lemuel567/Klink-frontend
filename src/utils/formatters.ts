@@ -1,4 +1,6 @@
 export function formatCurrency(amount: number, currency = 'GHS'): string {
+  // A missing/NaN amount must render as a placeholder, never "GH₵NaN".
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return '—';
   return new Intl.NumberFormat('en-GH', {
     style: 'currency',
     currency,
@@ -12,17 +14,24 @@ export function formatAmount(amount: number): string {
   return amount.toFixed(2);
 }
 
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | null | undefined): string {
+  // Intl throws RangeError on an invalid Date — a single null field from the
+  // API must not crash the row that renders it.
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
   return new Intl.DateTimeFormat('en-GH', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(date));
+  }).format(d);
 }
 
-export function formatRelativeTime(date: string | Date): string {
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return '—';
   const now = new Date();
   const then = new Date(date);
+  if (isNaN(then.getTime())) return '—';
   const diffMs = now.getTime() - then.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
   const diffHr = Math.floor(diffMin / 60);

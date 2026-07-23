@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ImageSourcePropType, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChurchBuilding } from '../../src/components/worship';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
+import { PopPressable } from '../../src/components/common/PopPressable';
 import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
 import { ScreenPhotos, WorshipImages } from '../../src/utils/worshipImages';
 import { churchApi } from '../../src/api/church';
@@ -15,6 +17,7 @@ import { FontFamily, FontSize, FontWeight, LetterSpacing } from '../../src/theme
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
+import { useRole } from '../../src/store/authStore';
 import { StaggerDelay } from '../../src/theme/animations';
 
 type Feature = { title: string; desc: string; route: any; photo: ImageSourcePropType };
@@ -55,6 +58,7 @@ const GROUPS: { label: string; features: Feature[] }[] = [
   {
     label: 'Resources',
     features: [
+      { title: 'Ask Klink', desc: 'AI help & guidance', route: '/assistant', photo: WorshipImages.worshipNp1 },
       { title: 'Church Files', desc: 'Docs & forms', route: '/files', photo: WorshipImages.worshipService1 },
       { title: 'Facilities', desc: 'Buildings & assets', route: '/facilities', photo: WorshipImages.churchInterior1 },
     ],
@@ -65,11 +69,25 @@ export default function ChurchScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
+  const role = useRole();
 
   const { data: church } = useQuery({
     queryKey: ['church-settings'],
     queryFn: () => churchApi.getSettings(),
   });
+
+  // Role-aware tiles: Automatic Giving for everyone; Insights (growth dashboard)
+  // for Pastor/Elder only — mirrors the backend /analytics/dashboard gate.
+  const groups = useMemo(() => GROUPS.map((g) => {
+    if (g.label !== 'Giving & Stewardship') return g;
+    const extra: Feature[] = [
+      { title: 'Automatic Giving', desc: 'Monthly reminders', route: '/giving/recurring', photo: WorshipImages.congregation1 },
+    ];
+    if (role === 'PASTOR' || role === 'ELDER') {
+      extra.push({ title: 'Insights', desc: 'Growth & trends', route: '/analytics', photo: WorshipImages.praiseNature1 });
+    }
+    return { ...g, features: [...g.features, ...extra] };
+  }), [role]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -90,18 +108,30 @@ export default function ChurchScreen() {
           <View style={styles.heroArt} pointerEvents="none">
             <ChurchBuilding width={200} height={160} />
           </View>
-          <Text style={styles.headerTitle} numberOfLines={2}>
-            {church?.churchName ?? 'Our Church'}
-          </Text>
-          <Text style={styles.headerSub}>
-            {church?.location ?? 'Everything your church shares, in one place'}
-          </Text>
+          <TypewriterText
+            text={church?.churchName ?? 'Our Church'}
+            style={styles.headerTitle}
+            numberOfLines={2}
+            charDelayMs={42}
+          />
+          <TypewriterText
+            text={church?.location ?? 'Everything your church shares, in one place'}
+            style={styles.headerSub}
+            charDelayMs={18}
+            startDelayMs={900}
+          />
         </View>
 
-        {GROUPS.map((group, g) => (
+        {groups.map((group, g) => (
           <View key={group.label} style={styles.groupBlock}>
             <View style={styles.groupHeader}>
-              <Text style={styles.groupEyebrow}>{group.label}</Text>
+              {/* Each group label writes itself, staggered down the page */}
+              <TypewriterText
+                text={group.label}
+                style={styles.groupEyebrow}
+                charDelayMs={30}
+                startDelayMs={250 + g * 300}
+              />
               <View style={styles.groupRule} />
             </View>
             <View style={styles.grid}>
@@ -117,10 +147,10 @@ export default function ChurchScreen() {
                   scaleFrom={0.97}
                   style={styles.gridItem}
                 >
-                  <TouchableOpacity
+                  <PopPressable
                     onPress={() => { haptics.light(); router.push(s.route); }}
                     style={styles.photoTile}
-                    activeOpacity={0.85}
+                    flashRadius={BorderRadius.lg}
                     accessibilityRole="button"
                     accessibilityLabel={s.title}
                   >
@@ -137,10 +167,17 @@ export default function ChurchScreen() {
                       style={StyleSheet.absoluteFill}
                     />
                     <View style={styles.tileText}>
-                      <Text style={styles.tileTitle} numberOfLines={1}>{s.title}</Text>
+                      {/* Title writes itself right after its tile glides in */}
+                      <TypewriterText
+                        text={s.title}
+                        style={styles.tileTitle}
+                        numberOfLines={1}
+                        charDelayMs={35}
+                        startDelayMs={Math.min(g * 2 + Math.floor(i / 2), 7) * StaggerDelay.list + 420}
+                      />
                       <Text style={styles.tileDesc} numberOfLines={1}>{s.desc}</Text>
                     </View>
-                  </TouchableOpacity>
+                  </PopPressable>
                 </ScrollReveal>
               ))}
             </View>

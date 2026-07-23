@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -38,6 +39,7 @@ import { useRole } from '../../src/store/authStore';
 import { formatRelativeTime } from '../../src/utils/formatters';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Backend: create / update / delete = Pastor, Elder, Manager
 const CAN_MANAGE = ['PASTOR', 'ELDER', 'MANAGER'];
@@ -131,18 +133,19 @@ export default function HallOfFameScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.golden} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hall of Fame</Text>
+        <TypewriterText text="Hall of Fame" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Honouring faithful service</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>

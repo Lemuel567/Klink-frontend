@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -209,8 +210,7 @@ export default function GroupDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient
-        colors={Gradients.worship}
+      <PhotoHeader
         style={[styles.header, { paddingTop: insets.top + 16 }]}
         onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
       >
@@ -264,7 +264,7 @@ export default function GroupDetailScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      </LinearGradient>
+      </PhotoHeader>
 
       {/* ── POSTS ── */}
       {tab === 'posts' && (

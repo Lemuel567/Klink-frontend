@@ -19,7 +19,7 @@ import { KlinkButton } from '../../src/components/common/KlinkButton';
 import { KlinkInput } from '../../src/components/common/KlinkInput';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
 import { DoveAnimation } from '../../src/components/church/DoveAnimation';
-import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
+import { ModalPhotoBackground } from '../../src/components/common/ModalPhotoBackground';
 import { ScreenPhotos } from '../../src/utils/worshipImages';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
@@ -80,7 +80,7 @@ export default function NewPrayerRequestScreen() {
   }, [title, content, submit]);
 
   return (
-    <WatermarkBackground imageSource={ScreenPhotos.prayerNew} overlayOpacity={0.66} style={styles.container}>
+    <ModalPhotoBackground imageSource={ScreenPhotos.prayerNew} overlayOpacity={0.66} style={styles.container}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]}
@@ -176,7 +176,7 @@ export default function NewPrayerRequestScreen() {
           <Text style={styles.doveText}>Your church is praying with you</Text>
         </Animated.View>
       )}
-    </WatermarkBackground>
+    </ModalPhotoBackground>
   );
 }
 

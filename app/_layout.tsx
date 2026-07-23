@@ -20,6 +20,8 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../src/store/authStore';
 import { useSoundStore } from '../src/store/soundStore';
+import { useBookmarkStore } from '../src/store/bookmarkStore';
+import { useNotificationStore } from '../src/store/notificationStore';
 import { soundManager } from '../src/utils/soundManager';
 import { useTheme } from '../src/hooks/useTheme';
 import { useNetworkStatus } from '../src/hooks/useNetworkStatus';
@@ -82,11 +84,16 @@ export default function RootLayout() {
   // query cache — otherwise the previous member's polls voted-flags, giving
   // history, notifications, etc. are shown to the next member until each
   // query happens to refetch (slow over tunnels, and a privacy leak).
+  // The two zustand-persisted stores (sermon bookmarks, local notification
+  // inbox) are device-global, so they must be wiped here too — without this,
+  // member B inherits member A's saved sermons and notification history.
   useEffect(() => {
     const prev = prevUserIdRef.current;
     prevUserIdRef.current = userId ?? null;
     if (prev && prev !== userId) {
       queryClient.clear();
+      useBookmarkStore.setState({ sermonIds: [] });
+      useNotificationStore.getState().clearAll();
     }
   }, [userId]);
 
@@ -198,7 +205,9 @@ export default function RootLayout() {
             // buster: bump to drop ALL persisted cache. v2 (2026-07-12) fixes the
             // "length of undefined" crash inside TanStack's infiniteQueryBehavior —
             // stale pre-upgrade infinite-query entries lacked pageParams.
-            persistOptions={{ persister: asyncStoragePersister, buster: 'klink-cache-v3' }}
+            // v4 (2026-07-23): drops caches poisoned by the payments-page
+            // ['store-my-purchases'] key collision (plain vs infinite shape).
+            persistOptions={{ persister: asyncStoragePersister, buster: 'klink-cache-v4' }}
           >
             <StatusBar style="light" />
             {/* THE LOGIN-PAGE LOOK, EVERYWHERE (2026-07-12): one rotating
@@ -228,6 +237,11 @@ export default function RootLayout() {
               <Stack.Screen name="giving/pay" options={{ presentation: 'modal' }} />
               <Stack.Screen name="giving/payment-history" />
               <Stack.Screen name="giving/history" />
+              <Stack.Screen name="payments/index" />
+              <Stack.Screen name="finances/collections" />
+              <Stack.Screen name="analytics/index" />
+              <Stack.Screen name="giving/recurring" />
+              <Stack.Screen name="assistant/index" />
               <Stack.Screen name="projects/index" />
               <Stack.Screen name="projects/[id]" />
               <Stack.Screen name="facilities/index" />

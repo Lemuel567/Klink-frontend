@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { formatRelativeTime } from '../../src/utils/formatters';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // One merged feed: locally received notifications + announcements addressed to me.
 interface FeedItem {
@@ -99,18 +101,19 @@ export default function NotificationsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.worship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Notifications</Text>
+            <TypewriterText text="Notifications" style={styles.headerTitle} charDelayMs={42} />
             <Text style={styles.headerSub}>
               {totalUnread > 0 ? `${totalUnread} unread` : "You're all caught up"}
             </Text>
@@ -126,7 +129,7 @@ export default function NotificationsScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </LinearGradient>
+      </PhotoHeader>
 
       {isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>

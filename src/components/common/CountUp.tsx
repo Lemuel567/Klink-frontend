@@ -12,6 +12,12 @@ export interface CountUpProps {
   durationMs?: number;
   /** Formats the intermediate number for display. Defaults to rounded integer. */
   format?: (n: number) => string;
+  /**
+   * Value the counter starts from on FIRST mount. Defaults to `value`, i.e. no
+   * mount animation (existing behaviour); pass 0 to count up when the number is
+   * already known at mount (e.g. stats rendered after a loading skeleton).
+   */
+  from?: number;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
 }
@@ -20,11 +26,12 @@ export function CountUp({
   value,
   durationMs = 900,
   format = (n) => String(Math.round(n)),
+  from,
   style,
   numberOfLines,
 }: CountUpProps) {
-  const [display, setDisplay] = useState(value);
-  const fromRef = useRef(value);
+  const [display, setDisplay] = useState(from ?? value);
+  const fromRef = useRef(from ?? value);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const displayRef = useRef(value);

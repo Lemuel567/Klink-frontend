@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ScrollReveal } from '../../src/components/animations/ScrollReveal';
+import { PopPressable } from '../../src/components/common/PopPressable';
 import { TitheThermometer } from '../../src/components/church/TitheThermometer';
 import { StatCardSkeleton } from '../../src/components/common/KlinkSkeleton';
 import { KlinkButton } from '../../src/components/common/KlinkButton';
@@ -154,10 +155,55 @@ export default function GivingScreen() {
           >
             <Text style={styles.onlineHistoryText}>Online payments ›</Text>
           </TouchableOpacity>
+          {(role === 'FINANCIAL_SECRETARY' || role === 'PASTOR' || role === 'ELDER') && (
+            <TouchableOpacity
+              onPress={() => { haptics.light(); router.push('/finances/collections' as any); }}
+              style={styles.onlineHistoryLink}
+              accessibilityRole="button"
+              accessibilityLabel="View service collections summary"
+            >
+              <Text style={styles.onlineHistoryText}>Service collections ›</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Categories — premium gradient tiles, horizontal snap, one-line text */}
+        {/* Automatic giving — prominent photo card (was a buried hero text link
+            nobody found). Routes to the recurring-giving manager. */}
         <ScrollReveal delay={0}>
+          <View style={styles.section}>
+            <TouchableOpacity
+              onPress={() => { haptics.medium(); router.push('/giving/recurring' as any); }}
+              style={styles.recurringCard}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Set up automatic giving"
+            >
+              <Image
+                source={WorshipImages.congregation1}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+              <LinearGradient
+                colors={['rgba(10,5,32,0.4)', 'rgba(10,5,32,0.75)', 'rgba(10,5,32,0.93)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.recurringBody}>
+                <Text style={styles.recurringEyebrow}>NEW · SET & FORGET</Text>
+                <Text style={styles.recurringTitle}>Automatic giving</Text>
+                <Text style={styles.recurringDesc} numberOfLines={2}>
+                  Pick an amount and a day of the month — Klink reminds you, ready to give in one tap.
+                </Text>
+              </View>
+              <Text style={styles.recurringChevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollReveal>
+
+        {/* Categories — premium gradient tiles, horizontal snap, one-line text */}
+        <ScrollReveal delay={60}>
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Give to</Text>
             <ScrollView
@@ -168,13 +214,13 @@ export default function GivingScreen() {
               contentContainerStyle={styles.categoryRow}
             >
               {CATEGORIES.map((cat) => (
-                <TouchableOpacity
+                <PopPressable
                   key={cat.key}
-                  activeOpacity={0.85}
                   onPress={() => { haptics.medium(); router.push('/giving/pay'); }}
                   accessibilityRole="button"
                   accessibilityLabel={`${cat.label}: ${cat.sub}`}
                   style={[styles.catShadow, { shadowColor: cat.gradient[0] }]}
+                  flashRadius={20}
                 >
                   <View style={[styles.categoryCard, { overflow: 'hidden' }]}>
                     <Image
@@ -199,7 +245,7 @@ export default function GivingScreen() {
                     <Text style={styles.catLabel} numberOfLines={1}>{cat.label}</Text>
                     <Text style={styles.catDesc} numberOfLines={1}>{cat.sub}</Text>
                   </View>
-                </TouchableOpacity>
+                </PopPressable>
               ))}
             </ScrollView>
           </View>
@@ -303,6 +349,17 @@ const styles = StyleSheet.create({
   giveBtn: { width: 200 },
   onlineHistoryLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   onlineHistoryText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.semiBold },
+  recurringCard: {
+    flexDirection: 'row', alignItems: 'center', minHeight: 104,
+    borderRadius: BorderRadius.xl, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(244,164,41,0.35)',
+    borderTopColor: 'rgba(255,255,255,0.28)',
+  },
+  recurringBody: { flex: 1, padding: Spacing.md, gap: 3 },
+  recurringEyebrow: { color: Colors.gold, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.8 },
+  recurringTitle: { color: Colors.white, fontSize: FontSize.h4, fontWeight: FontWeight.bold },
+  recurringDesc: { color: 'rgba(255,255,255,0.78)', fontSize: FontSize.caption, lineHeight: FontSize.caption * 1.5 },
+  recurringChevron: { color: Colors.gold, fontSize: 30, paddingHorizontal: Spacing.md },
   section: { padding: Spacing.pagePadding, gap: Spacing.md },
   // Serif display voice for section titles (matches home; no fontWeight with a
   // weight-specific named family — Android font-resolution quirk)

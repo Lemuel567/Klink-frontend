@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
@@ -35,6 +36,7 @@ import { useRole } from '../../src/store/authStore';
 import { formatRelativeTime } from '../../src/utils/formatters';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Backend: upload/delete = Pastor, Elder, Manager; PDF only, max 30MB, max 10 per church
 const CAN_MANAGE = ['PASTOR', 'ELDER', 'MANAGER'];
@@ -127,18 +129,19 @@ export default function ChurchFilesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.darkWorship} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Church Files</Text>
+        <TypewriterText text="Church Files" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Documents, forms and resources</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>

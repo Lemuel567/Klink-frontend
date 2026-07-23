@@ -1,6 +1,6 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL, SECURE_KEYS, TIMEOUT_MS } from '../utils/constants';
+import { ACCESS_TOKEN_TTL_MS, API_BASE_URL, SECURE_KEYS, TIMEOUT_MS } from '../utils/constants';
 
 // Lazy import to avoid circular dependency at module init time
 let _setOffline: ((v: boolean) => void) | null = null;
@@ -12,14 +12,18 @@ function getSetOffline() {
 }
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+// Subscribers receive the new access token, or null when the refresh FAILED —
+// they must reject in that case. Silently discarding them (the old behaviour)
+// left every queued request pending forever: screens spun on skeletons with
+// no error and no retry after an expired session.
+let refreshSubscribers: ((token: string | null) => void)[] = [];
 
-function onRefreshed(token: string) {
+function onRefreshed(token: string | null) {
   refreshSubscribers.forEach((cb) => cb(token));
   refreshSubscribers = [];
 }
 
-function addRefreshSubscriber(cb: (token: string) => void) {
+function addRefreshSubscriber(cb: (token: string | null) => void) {
   refreshSubscribers.push(cb);
 }
 
@@ -136,8 +140,15 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry && !isPublicAuthCall) {
       if (isRefreshing) {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           addRefreshSubscriber((newToken) => {
+            if (newToken === null) {
+              reject(Object.assign(error, {
+                isAuthExpired: true,
+                friendlyMessage: 'Session expired. Please log in again.',
+              }));
+              return;
+            }
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             resolve(apiClient(originalRequest));
           });
@@ -158,6 +169,9 @@ apiClient.interceptors.response.use(
         await Promise.all([
           SecureStore.setItemAsync(SECURE_KEYS.accessToken, newAccessToken),
           SecureStore.setItemAsync(SECURE_KEYS.refreshToken, newRefreshToken),
+          // Keep the session-expiry warning honest: the token just got a fresh
+          // 15-minute TTL, so the stored expiry must advance with it.
+          SecureStore.setItemAsync(SECURE_KEYS.tokenExpiry, String(Date.now() + ACCESS_TOKEN_TTL_MS)),
         ]);
 
         onRefreshed(newAccessToken);
@@ -167,7 +181,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch {
         isRefreshing = false;
-        refreshSubscribers = [];
+        onRefreshed(null); // reject every queued request — never strand them pending
         await Promise.all([
           SecureStore.deleteItemAsync(SECURE_KEYS.accessToken).catch(() => {}),
           SecureStore.deleteItemAsync(SECURE_KEYS.refreshToken).catch(() => {}),

@@ -38,6 +38,7 @@ import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { formatCurrency, formatDate } from '../../src/utils/formatters';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 type Tab = 'shop' | 'purchases' | 'payments';
 
@@ -237,7 +238,7 @@ export default function StoreScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Church Store</Text>
+        <TypewriterText text="Church Store" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Books, merch and materials from your church</Text>
 
         {/* Tabs — All payments only for FinSec / Pastor / Elder / Manager */}

@@ -27,7 +27,7 @@ export function AnnouncementCard({ announcement, index = 0, onPress }: Props) {
   const badgeLabel = targetTypeLabel(announcement.targetType);
 
   return (
-    <ScrollReveal delay={index * StaggerDelay.list}>
+    <ScrollReveal replayOnFocus={false} delay={index * StaggerDelay.list}>
       <KlinkCard onPress={onPress} style={styles.card}>
         {/* Alternating worship photo — subtle right-edge accent, faded into the card */}
         <ExpoImage

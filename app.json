@@ -33,7 +33,32 @@
       "expo-font",
       "expo-secure-store",
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Klink uses the camera to scan attendance QR codes at church services."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Klink needs access to your photos so you can set a profile picture and share church photos.",
+          "cameraPermission": "Klink uses the camera to take a profile picture or photos for church galleries."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F4A429"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

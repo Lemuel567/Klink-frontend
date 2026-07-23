@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -36,6 +37,7 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
 import { useRole } from '../../src/store/authStore';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 type Tab = 'all' | 'saved';
 
@@ -66,6 +68,9 @@ export default function SermonsScreen() {
   const [notes, setNotes] = useState('');
   const [audio, setAudio] = useState<{ uri: string; name: string; type: string } | null>(null);
   const [formError, setFormError] = useState('');
+  // Once the AI has drafted notes, show a "review before posting" hint until
+  // the manager edits them again (editing implies they've reviewed it).
+  const [aiDrafted, setAiDrafted] = useState(false);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch, isRefetching } =
     useInfiniteQuery({
@@ -89,6 +94,7 @@ export default function SermonsScreen() {
     setNotes('');
     setAudio(null);
     setFormError('');
+    setAiDrafted(false);
   };
 
   const pickAudio = async () => {
@@ -109,6 +115,40 @@ export default function SermonsScreen() {
     } catch {
       Alert.alert('Error', 'Could not open the file picker.');
     }
+  };
+
+  const { mutate: generateNotes, isPending: generating } = useMutation({
+    mutationFn: () =>
+      sermonsApi.generateNotes({
+        title: title.trim(),
+        preacher: preacher.trim() || undefined,
+        memoryVerse: memoryVerse.trim() || undefined,
+        scripture: scripture.trim() || undefined,
+        notes: notes.trim(),
+      }),
+    onSuccess: (generated) => {
+      setNotes(generated);
+      setAiDrafted(true);
+      haptics.success();
+    },
+    onError: (err: any) => {
+      Alert.alert('Could not generate notes', err?.friendlyMessage ?? 'Please try again.');
+      haptics.error();
+    },
+  });
+
+  const handleGenerateNotes = () => {
+    if (!title.trim()) {
+      setFormError('Add a sermon title first.');
+      return;
+    }
+    if (!notes.trim()) {
+      setFormError('Type a few brief notes for the AI to expand on.');
+      return;
+    }
+    setFormError('');
+    haptics.light();
+    generateNotes();
   };
 
   const { mutate: upload, isPending: uploading } = useMutation({
@@ -169,10 +209,11 @@ export default function SermonsScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sermons</Text>
+        <TypewriterText text="Sermons" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Messages from the Word</Text>
 
         {/* All / Saved tabs */}
@@ -313,12 +354,52 @@ export default function SermonsScreen() {
               <KlinkInput
                 label="Notes (optional)"
                 value={notes}
-                onChangeText={setNotes}
+                onChangeText={(t) => { setNotes(t); setAiDrafted(false); }}
                 multiline
                 numberOfLines={4}
                 maxLength={10000}
                 autoCapitalize="sentences"
               />
+
+              {/* AI drafting — expands the brief notes above into a detailed
+                  summary. The manager reviews/edits before posting; editing
+                  the text clears the "AI-drafted" state below. */}
+              <TouchableOpacity
+                onPress={handleGenerateNotes}
+                disabled={generating}
+                style={styles.aiButton}
+                accessibilityRole="button"
+                accessibilityLabel={aiDrafted ? 'Regenerate detailed notes with AI' : 'Generate detailed notes with AI'}
+              >
+                <LinearGradient
+                  colors={['rgba(244,164,41,0.28)', 'rgba(107,63,160,0.35)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.aiButtonInner}
+                >
+                  {generating ? (
+                    <>
+                      <ActivityIndicator size="small" color={Colors.gold} />
+                      <Text style={styles.aiButtonText}>Writing your notes…</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.aiSparkle}>✨</Text>
+                      <Text style={styles.aiButtonText}>
+                        {aiDrafted ? 'Regenerate detailed notes' : 'Generate detailed notes'}
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+              {aiDrafted && (
+                <View style={styles.aiHintRow}>
+                  <Text style={styles.aiHintBadge}>AI DRAFT</Text>
+                  <Text style={styles.aiHint}>
+                    Written from your notes — review and edit before posting.
+                  </Text>
+                </View>
+              )}
 
               {/* Date uses a label-above plain input — floating labels overlap typed dates */}
               <View style={styles.dateField}>
@@ -499,6 +580,47 @@ const styles = StyleSheet.create({
   audioSub: { color: 'rgba(255,255,255,0.5)', fontSize: FontSize.caption },
   audioRemove: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   audioRemoveText: { color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold },
+  aiButton: {
+    marginTop: -Spacing.xs,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(244,164,41,0.45)',
+  },
+  aiButtonInner: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  aiSparkle: { fontSize: 15 },
+  aiButtonText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold, letterSpacing: 0.4 },
+  aiHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: -Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  aiHintBadge: {
+    color: '#1A0533',
+    backgroundColor: Colors.gold,
+    fontSize: 9,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  aiHint: {
+    flex: 1,
+    color: 'rgba(244,164,41,0.85)',
+    fontSize: FontSize.caption,
+  },
   formError: { color: Colors.red, fontSize: FontSize.small, marginTop: Spacing.sm },
   modalActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   modalCancel: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.sm },

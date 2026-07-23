@@ -26,6 +26,7 @@ class SoundManager {
   private isLoadingMusic: boolean = false;
   private musicEnabled: boolean = true;
 
+
   // Which track is currently loaded (0-based index into TRACKS)
   private currentTrackIndex: number = 0;
   // Listeners that receive track-change notifications (used by MusicIndicator)

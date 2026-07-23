@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -87,12 +88,13 @@ export default function EventDetailScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xxl }} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={Gradients.heaven} style={[styles.hero, { paddingTop: insets.top + 16 }]}>
+        <PhotoHeader style={[styles.hero, { paddingTop: insets.top + 16 }]}>
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
+         
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>
@@ -104,7 +106,7 @@ export default function EventDetailScreen() {
 
           <Text style={styles.title}>{params.title ?? 'Church event'}</Text>
           {countdown && <Text style={styles.countdown}>{countdown}</Text>}
-        </LinearGradient>
+        </PhotoHeader>
 
         <View style={styles.body}>
           <ScrollReveal delay={100}>

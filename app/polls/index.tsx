@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PhotoHeader } from "../../src/components/common/PhotoHeader";
 import { BlurView } from 'expo-blur';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +40,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Duration, EasingPresets, StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
+import { TypewriterText } from '../../src/components/animations/TypewriterText';
 
 // Backend: create = Pastor or Manager ONLY; delete = Pastor, Elder, Manager.
 // Everyone votes (once, enforced server-side) and everyone sees results.
@@ -69,12 +71,20 @@ export default function PollsScreen() {
 
   const polls: Poll[] = query.data?.pages.flatMap((p) => p.content) ?? [];
 
-  const { mutate: vote, isPending: voting } = useMutation({
+  // Which poll is mid-vote — so only that card's options disable, not all polls
+  const [votingPollId, setVotingPollId] = useState<string | null>(null);
+
+  const { mutate: vote } = useMutation({
     mutationFn: ({ pollId, option }: { pollId: string; option: string }) =>
       pollsApi.vote(pollId, option),
-    onSuccess: (_data, { pollId }) => {
-      // Mark this poll voted in the cache immediately — the options must lock
-      // the instant the vote lands, not after the list refetch completes.
+    onMutate: ({ pollId, option }) => {
+      setVotingPollId(pollId);
+      // Snapshot BEFORE the optimistic write — if the vote fails (especially
+      // offline, where the "rollback by refetch" also fails), we restore this
+      // instead of leaving a phantom "✓ Voted" the server never recorded.
+      const previous = queryClient.getQueryData(['polls']);
+      // Reflect the choice instantly — mark voted and record WHICH option, so
+      // the row highlights and the footer updates before the refetch lands.
       queryClient.setQueryData(['polls'], (old: any) =>
         old
           ? {
@@ -82,21 +92,29 @@ export default function PollsScreen() {
               pages: old.pages.map((pg: any) => ({
                 ...pg,
                 content: pg.content.map((p: Poll) =>
-                  p.id === pollId ? { ...p, voted: true } : p,
+                  p.id === pollId ? { ...p, voted: true, votedOption: option } : p,
                 ),
               })),
             }
           : old,
       );
+      return { previous };
+    },
+    onSuccess: (_data, { pollId }) => {
       queryClient.invalidateQueries({ queryKey: ['polls'] });
-      // Fresh counts for the result bars that appear right after voting
+      // Fresh counts for the result bars
       queryClient.invalidateQueries({ queryKey: ['poll-results', pollId] });
       haptics.success();
     },
-    onError: (err: any) => {
+    onError: (err: any, _vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(['polls'], context.previous);
+      }
       Alert.alert('Could not vote', err?.friendlyMessage ?? 'Please try again.');
       haptics.error();
+      queryClient.invalidateQueries({ queryKey: ['polls'] });
     },
+    onSettled: () => setVotingPollId(null),
   });
 
   const { mutate: create, isPending: creating } = useMutation({
@@ -130,30 +148,32 @@ export default function PollsScreen() {
     },
   });
 
-  const confirmVote = (poll: Poll, option: string) => {
+  // Tap to vote — or tap a different option to change an existing vote. No
+  // confirm dialog: changing is meant to be easy, and the highlight + haptic
+  // are feedback enough.
+  const castVote = (poll: Poll, option: string) => {
+    if (poll.votedOption === option) return; // already your choice — no-op
     haptics.light();
-    Alert.alert('Cast your vote?', `“${option}” — you can only vote once.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Vote', onPress: () => vote({ pollId: poll.id, option }) },
-    ]);
+    vote({ pollId: poll.id, option });
   };
 
   const validOptions = options.map((o) => o.trim()).filter(Boolean);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={Gradients.heaven} style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <PhotoHeader style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
+         
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Polls</Text>
+        <TypewriterText text="Polls" style={styles.headerTitle} charDelayMs={42} />
         <Text style={styles.headerSub}>Your voice in church decisions</Text>
-      </LinearGradient>
+      </PhotoHeader>
 
       {query.isLoading ? (
         <View style={{ paddingTop: Spacing.md }}>
@@ -180,30 +200,19 @@ export default function PollsScreen() {
                   </View>
                 </View>
 
-                {item.voted || !item.open ? (
-                  // Voted or closed → read-only results with animated fill bars
-                  <PollResults poll={item} />
-                ) : (
-                  item.options.map((opt) => (
-                    <TouchableOpacity
-                      key={opt}
-                      disabled={voting}
-                      onPress={() => confirmVote(item, opt)}
-                      style={styles.option}
-                      activeOpacity={0.6}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Vote for ${opt}`}
-                    >
-                      <Text style={[styles.optionText, { color: theme.text }]}>{opt}</Text>
-                    </TouchableOpacity>
-                  ))
-                )}
+                <PollBody
+                  poll={item}
+                  voting={votingPollId === item.id}
+                  onVote={(opt) => castVote(item, opt)}
+                />
 
                 <View style={styles.cardFooter}>
-                  {item.voted ? (
-                    <Text style={[styles.votedText, { color: Colors.success }]}>✓ You voted</Text>
-                  ) : !item.open ? (
+                  {!item.open ? (
                     <Text style={[styles.votedText, { color: theme.textMuted }]}>Voting closed</Text>
+                  ) : item.voted ? (
+                    <Text style={[styles.votedText, { color: Colors.success }]}>
+                      ✓ Voted — tap another to change
+                    </Text>
                   ) : (
                     <Text style={[styles.votedText, { color: theme.textMuted }]}>Tap an option to vote</Text>
                   )}
@@ -363,40 +372,106 @@ export default function PollsScreen() {
   );
 }
 
-// ─── Inline results — EVERYONE sees these once they voted or the poll closed ──
-// Read-only by construction: only aggregate counts/percentages come from the
-// server, and there is no way to alter them from the client.
-function PollResults({ poll }: { poll: Poll }) {
+// ─── Poll body — voter count + one bar per option ─────────────────────────────
+// EVERYONE sees the number of voters and each option's percentage. While the
+// poll is OPEN, every bar is tappable: tap to vote, or tap a different bar to
+// change your vote. The option you currently hold is highlighted with a ✓.
+function PollBody({
+  poll,
+  voting,
+  onVote,
+}: {
+  poll: Poll;
+  voting: boolean;
+  onVote: (option: string) => void;
+}) {
   const { theme } = useTheme();
-  const { data } = useQuery({
+  const { data, isError, refetch, isRefetching } = useQuery({
     queryKey: ['poll-results', poll.id],
     queryFn: () => pollsApi.getResults(poll.id),
-    // Light polling keeps the numbers live while voting is still open
-    refetchInterval: poll.open ? 30_000 : false,
+    // Keep the numbers live while voting is still open
+    refetchInterval: poll.open ? 20_000 : false,
   });
 
-  if (!data) {
-    return <Text style={[styles.votedText, { color: theme.textMuted }]}>Loading results…</Text>;
-  }
+  const countFor = (opt: string) => data?.results.find((r) => r.option === opt);
+  const totalVotes = data?.totalVotes ?? 0;
 
   return (
     <View style={{ gap: Spacing.sm }}>
       <Text style={[styles.voterCount, { color: theme.textMuted }]}>
-        {data.totalVotes} {data.totalVotes === 1 ? 'MEMBER HAS' : 'MEMBERS HAVE'} VOTED
+        {data
+          ? `${totalVotes} ${totalVotes === 1 ? 'MEMBER HAS' : 'MEMBERS HAVE'} VOTED`
+          : 'LOADING RESULTS…'}
       </Text>
-      {data.results.map((r, i) => (
-        <ResultRow key={r.option} option={r.option} votes={r.votes} percentage={r.percentage} index={i} />
-      ))}
+
+      {poll.options.map((opt, i) => {
+        const r = countFor(opt);
+        const row = (
+          <PollOptionRow
+            option={opt}
+            percentage={r?.percentage ?? 0}
+            votes={r?.votes ?? 0}
+            mine={poll.votedOption === opt}
+            showResults={!!data}
+            index={i}
+          />
+        );
+        // Open poll → tappable (vote / change). Closed → read-only.
+        return poll.open ? (
+          <TouchableOpacity
+            key={opt}
+            disabled={voting}
+            activeOpacity={0.7}
+            onPress={() => onVote(opt)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              poll.votedOption === opt ? `Your vote: ${opt}` : `Vote for ${opt}`
+            }
+          >
+            {row}
+          </TouchableOpacity>
+        ) : (
+          <View key={opt}>{row}</View>
+        );
+      })}
+
+      {isError && (
+        <View style={styles.resultsErrorRow}>
+          <Text style={[styles.votedText, { color: theme.textMuted, flex: 1 }]} numberOfLines={2}>
+            Couldn't load the latest counts.
+          </Text>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            disabled={isRefetching}
+            style={styles.retryLink}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading results"
+          >
+            <Text style={styles.manageLinkText}>{isRefetching ? 'Retrying…' : 'Try again'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
 
-// One option row — the gold bar fills smoothly to its percentage, staggered
-// per row, on first appearance AND whenever the live numbers change.
-function ResultRow({ option, votes, percentage, index }: {
+// One option: a bordered pill with a gold fill bar behind the label. The fill
+// animates to the option's percentage (staggered) once results arrive; before
+// then the pill is plain so voting is never blocked on the results loading.
+// `mine` (the caller's current choice) gets a stronger gold border + a ✓.
+function PollOptionRow({
+  option,
+  percentage,
+  votes,
+  mine,
+  showResults,
+  index,
+}: {
   option: string;
-  votes: number;
   percentage: number;
+  votes: number;
+  mine: boolean;
+  showResults: boolean;
   index: number;
 }) {
   const { theme } = useTheme();
@@ -405,20 +480,35 @@ function ResultRow({ option, votes, percentage, index }: {
   useEffect(() => {
     fill.value = withDelay(
       index * StaggerDelay.list,
-      withTiming(percentage, { duration: Duration.verySlow, easing: EasingPresets.enter }),
+      withTiming(showResults ? percentage : 0, {
+        duration: Duration.verySlow,
+        easing: EasingPresets.enter,
+      }),
     );
-  }, [percentage, index]);
+  }, [percentage, showResults, index]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` }));
 
   return (
-    <View style={styles.resultItem}>
-      <View style={styles.resultLabelRow}>
-        <Text style={[styles.resultOption, { color: theme.text }]} numberOfLines={1}>{option}</Text>
-        <Text style={styles.resultPct}>{percentage}% · {votes}</Text>
-      </View>
-      <View style={styles.resultTrack}>
-        <Animated.View style={[styles.resultFill, fillStyle]} />
+    <View style={[styles.pollOption, mine && styles.pollOptionMine]}>
+      {showResults && (
+        <Animated.View
+          style={[styles.pollOptionFill, mine && styles.pollOptionFillMine, fillStyle]}
+        />
+      )}
+      <View style={styles.pollOptionRow}>
+        <Text
+          style={[styles.optionText, { color: theme.text }, mine && styles.optionTextMine]}
+          numberOfLines={1}
+        >
+          {mine ? '✓ ' : ''}
+          {option}
+        </Text>
+        {showResults && (
+          <Text style={styles.resultPct}>
+            {percentage}% · {votes}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -437,16 +527,39 @@ const styles = StyleSheet.create({
   question: { flex: 1, fontSize: FontSize.body, fontWeight: FontWeight.semiBold, lineHeight: FontSize.body * 1.4 },
   stateBadge: { borderRadius: BorderRadius.full, paddingHorizontal: 10, paddingVertical: 4 },
   stateText: { fontSize: FontSize.caption, fontWeight: FontWeight.semiBold },
-  option: {
+  // Combined vote + result pill: bordered row, gold fill bar behind the label
+  pollOption: {
     borderWidth: 1,
     borderColor: 'rgba(244,164,41,0.35)',
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
-    minHeight: 44,
+    minHeight: 46,
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
-  optionDisabled: { borderColor: 'rgba(255,255,255,0.1)', opacity: 0.7 },
-  optionText: { fontSize: FontSize.small, fontWeight: FontWeight.medium },
+  pollOptionMine: {
+    borderColor: Colors.gold,
+    borderWidth: 1.5,
+  },
+  pollOptionFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(244,164,41,0.14)',
+  },
+  pollOptionFillMine: {
+    backgroundColor: 'rgba(244,164,41,0.28)',
+  },
+  pollOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  optionText: { flex: 1, fontSize: FontSize.small, fontWeight: FontWeight.medium },
+  optionTextMine: { fontWeight: FontWeight.semiBold },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -505,6 +618,8 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semiBold,
     letterSpacing: LetterSpacing.wider,
   },
+  resultsErrorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  retryLink: { minHeight: 32, justifyContent: 'center' },
   resultItem: { gap: 4 },
   resultLabelRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm },
   resultOption: { color: Colors.white, fontSize: FontSize.small, flex: 1 },
