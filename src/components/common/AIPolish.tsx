@@ -17,6 +17,8 @@ interface Props {
   contentType: string;
   /** Minimum characters before the button is usable (default 8). */
   minChars?: number;
+  /** Maximum characters before the button is disabled (default 3000). */
+  maxChars?: number;
   /** Button label (default "Polish with AI"). */
   label?: string;
   style?: ViewStyle;
@@ -34,7 +36,15 @@ interface Props {
  *   <AIPolish text={description} onResult={setDescription}
  *             contentType="an event description" />
  */
-export function AIPolish({ text, onResult, contentType, minChars = 8, label = 'Polish with AI', style }: Props) {
+export function AIPolish({
+  text,
+  onResult,
+  contentType,
+  minChars = 8,
+  maxChars = 3000,
+  label = 'Polish with AI',
+  style,
+}: Props) {
   const haptics = useHaptics();
   // Remember what we last produced; the badge shows only while the field still
   // holds that exact text (i.e. the member hasn't edited it since).
@@ -53,7 +63,10 @@ export function AIPolish({ text, onResult, contentType, minChars = 8, label = 'P
     },
   });
 
-  const ready = text.trim().length >= minChars;
+  const trimmedLength = text.trim().length;
+  const tooShort = trimmedLength < minChars;
+  const tooLong = trimmedLength > maxChars;
+  const ready = !tooShort && !tooLong;
   const showBadge = polished !== null && polished === text;
 
   return (
@@ -87,13 +100,17 @@ export function AIPolish({ text, onResult, contentType, minChars = 8, label = 'P
       </TouchableOpacity>
 
       {showBadge && (
-        <View style={styles.hintRow}>
+        <View style={styles.hintRow} accessibilityLiveRegion="polite">
           <Text style={styles.hintBadge}>AI POLISHED</Text>
           <Text style={styles.hint}>Review and edit before saving — it only uses what you wrote.</Text>
         </View>
       )}
       {!ready && !showBadge && (
-        <Text style={styles.helper}>Type a few words, then let AI polish them.</Text>
+        <Text style={styles.helper}>
+          {tooLong
+            ? `Shorten your text to under ${maxChars} characters to polish it.`
+            : 'Type a few words, then let AI polish them.'}
+        </Text>
       )}
     </View>
   );
