@@ -54,6 +54,8 @@ const ROLE_LABELS: Record<ChurchRole, string> = {
   MEMBER: 'Member',
 };
 
+const MAX_BODY_LENGTH = 5000;
+
 export default function NewAnnouncementScreen() {
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -132,7 +134,6 @@ export default function NewAnnouncementScreen() {
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
-         
           >
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
@@ -175,7 +176,7 @@ export default function NewAnnouncementScreen() {
               placeholderTextColor={theme.textMuted}
               value={body}
               onChangeText={setBody}
-              maxLength={5000}
+              maxLength={MAX_BODY_LENGTH}
               multiline
               textAlignVertical="top"
               accessibilityLabel="Announcement message"
@@ -186,6 +187,9 @@ export default function NewAnnouncementScreen() {
               contentType="a church announcement (clear and inviting)"
               style={{ marginTop: 8 }}
             />
+            <Text style={[styles.charCount, { color: theme.textMuted }]}>
+              {body.length} / {MAX_BODY_LENGTH}
+            </Text>
           </View>
 
           {/* Target type */}
@@ -300,6 +304,7 @@ export default function NewAnnouncementScreen() {
             ]}
             accessibilityRole="button"
             accessibilityLabel="Post announcement"
+            accessibilityHint="Publishes this announcement to the selected audience"
           >
             <LinearGradient colors={Gradients.glory} style={styles.submitGradient}>
               {createMutation.isPending ? (
@@ -333,6 +338,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   textarea: { minHeight: 140, paddingTop: Spacing.md },
+  charCount: { fontSize: FontSize.small, textAlign: 'right', marginTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
     paddingHorizontal: Spacing.md,
