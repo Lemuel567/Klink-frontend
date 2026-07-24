@@ -160,6 +160,8 @@ export default function PollsScreen() {
   };
 
   const validOptions = options.map((o) => o.trim()).filter(Boolean);
+  const hasDuplicates = new Set(validOptions.map((o) => o.toLowerCase())).size !== validOptions.length;
+  const canSubmitPoll = !!question.trim() && validOptions.length >= 2 && !hasDuplicates;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -169,7 +171,7 @@ export default function PollsScreen() {
           style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
-         
+
         >
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
@@ -343,6 +345,10 @@ export default function PollsScreen() {
                 </View>
               ))}
 
+              {hasDuplicates && (
+                <Text style={styles.duplicateWarning}>Options must be unique.</Text>
+              )}
+
               {options.length < 10 && (
                 <TouchableOpacity
                   disabled={creating}
@@ -369,8 +375,8 @@ export default function PollsScreen() {
               <View style={{ flex: 1 }}>
                 <KlinkButton
                   label="Create Poll"
-                  onPress={() => { if (question.trim() && validOptions.length >= 2) create(); }}
-                  disabled={!question.trim() || validOptions.length < 2 || creating}
+                  onPress={() => { if (canSubmitPoll) create(); }}
+                  disabled={!canSubmitPoll || creating}
                   loading={creating}
                 />
               </View>
@@ -731,6 +737,7 @@ const styles = StyleSheet.create({
   addOption: { minHeight: 44, justifyContent: 'center' },
   addOptionText: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold },
   frozen: { opacity: 0.4 },
+  duplicateWarning: { color: Colors.red, fontSize: FontSize.caption, marginTop: 4, marginBottom: Spacing.sm },
   modalActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   modalCancel: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.sm },
   modalCancelText: { color: Colors.darkMuted, fontSize: FontSize.body, fontWeight: FontWeight.medium },
