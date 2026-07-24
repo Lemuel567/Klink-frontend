@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -47,6 +47,13 @@ export default function NewPrayerRequestScreen() {
   const [titleError, setTitleError] = useState('');
   const [contentError, setContentError] = useState('');
   const [showDove, setShowDove] = useState(false);
+  const navigateTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navigateTimeout.current) clearTimeout(navigateTimeout.current);
+    };
+  }, []);
 
   const { mutate: submit, isPending } = useMutation({
     mutationFn: () =>
@@ -56,7 +63,7 @@ export default function NewPrayerRequestScreen() {
       haptics.success();
       // Dove flies before we return — a moment of peace on success
       setShowDove(true);
-      setTimeout(() => router.back(), 1800);
+      navigateTimeout.current = setTimeout(() => router.back(), 1800);
     },
     onError: (err: any) => {
       Alert.alert('Error', err?.friendlyMessage ?? 'Could not send your prayer request. Please try again.');
