@@ -3,7 +3,13 @@ import { MemberSummary } from './auth';
 
 // Regular members receive the DIRECTORY view: id, fullName, phone, photoUrl
 // only — every other field is null/absent (backend privacy rule, 2026-07-12).
-export interface Member extends MemberSummary {
+// role/email are overridden as nullable (they are NON-null on the auth user's
+// MemberSummary) so the type system forces a guard before `.role`/`.email`
+// access on a member RECORD — the documented "never .replace on member.role
+// without a guard" crash class (CLAUDE.md §14, skill rule #5).
+export interface Member extends Omit<MemberSummary, 'role' | 'email'> {
+  role?: string | null;
+  email?: string | null;
   phone?: string;
   dateOfBirth?: string;
   status?: 'ACTIVE' | 'DEACTIVATED';
@@ -21,7 +27,33 @@ export interface MemberPage {
   size: number;
 }
 
+// "Your Journey" — the caller's OWN personal summary (backend scopes it to
+// the login token; it never contains anyone else's data).
+export interface MemberJourney {
+  fullName: string;
+  photoUrl?: string | null;
+  memberSince?: string | null;
+  totalGiven: number;
+  givenThisYear: number;
+  servicesAttended: number;
+  pledgesTotal: number;
+  pledgesKept: number;
+  pledgedAmount: number;
+  pledgePaidAmount: number;
+  projectsSupported: number;
+  projectContributed: number;
+  welfareApplicable: boolean;
+  welfareUpToDate: boolean;
+  groups: string[];
+  givingStreakMonths: number;
+  milestones: { icon: string; label: string }[];
+}
+
 export const membersApi = {
+  // GET /members/me/journey — my own summary
+  getMyJourney: () =>
+    apiClient.get<MemberJourney>('/members/me/journey').then((r) => r.data),
+
   list: (params?: { page?: number; size?: number; status?: string; search?: string }) =>
     apiClient.get<MemberPage>('/members', { params }).then((r) => r.data),
 

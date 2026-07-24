@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image as ExpoImage } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import Animated, {
   useSharedValue,
@@ -24,6 +25,7 @@ import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography'
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { SpringConfig } from '../../src/theme/animations';
 import { useHaptics } from '../../src/hooks/useHaptics';
+import { WorshipImages } from '../../src/utils/worshipImages';
 
 const { width, height } = Dimensions.get('window');
 
@@ -81,6 +83,18 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Fixed intro background — the "hm" interior photo sits behind every
+          slide; a dark scrim keeps the white titles and gold button readable. */}
+      <ExpoImage
+        source={WorshipImages.interiorWarm1}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
+      <LinearGradient
+        colors={['rgba(10,5,32,0.55)', 'rgba(10,5,32,0.72)', 'rgba(10,5,32,0.9)'] as const}
+        style={StyleSheet.absoluteFill}
+      />
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -92,8 +106,9 @@ export default function OnboardingScreen() {
       >
         {SLIDES.map((item) => (
           <View key={item.id} style={styles.slide}>
-            {/* Multi-layer parallax background */}
-            <LinearGradient colors={item.gradient} style={StyleSheet.absoluteFill} />
+            {/* Slides sit over the shared "hm" intro photo (rendered on the
+                container). Keep only the light beam + colored accent orb so the
+                photo shows through instead of an opaque per-slide gradient. */}
             <LightBeam opacity={0.08} />
 
             {/* Colored gradient orb */}

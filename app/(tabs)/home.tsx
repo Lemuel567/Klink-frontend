@@ -40,7 +40,6 @@ import {
   SermonCardSkeleton,
   StatCardSkeleton,
 } from '../../src/components/common/KlinkSkeleton';
-import { EmptyState } from '../../src/components/common/EmptyState';
 import { announcementsApi, Announcement } from '../../src/api/announcements';
 import { sermonsApi, Sermon } from '../../src/api/sermons';
 import { eventsApi, ChurchEvent } from '../../src/api/events';
@@ -49,6 +48,7 @@ import { givingApi } from '../../src/api/giving';
 import { devotionalsApi } from '../../src/api/devotionals';
 import { attendanceApi } from '../../src/api/attendance';
 import { pledgesApi } from '../../src/api/pledges';
+import { liveStreamsApi } from '../../src/api/liveStreams';
 import { formatCurrency } from '../../src/utils/formatters';
 import { useParallax } from '../../src/hooks/useParallax';
 import { useAuthStore, useUser, useRole } from '../../src/store/authStore';
@@ -59,14 +59,10 @@ import { WorshipImages as QAPhotos } from '../../src/utils/worshipImages';
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { useHaptics } from '../../src/hooks/useHaptics';
+import { getDailyVerse } from '../../src/utils/dailyVerse';
 
 const { height } = Dimensions.get('window');
 const HERO_HEIGHT = height * 0.42;
-
-const DAILY_VERSE = {
-  verse: '"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future."',
-  reference: 'Jeremiah 29:11',
-};
 
 export default function HomeScreen() {
   const { theme, isDark } = useTheme();
@@ -102,9 +98,22 @@ export default function HomeScreen() {
   const { data: devotionals, refetch: refetchDevotionals } =
     useQuery({ queryKey: ['devotionals-latest'], queryFn: () => devotionalsApi.getAll({ size: 1 }) });
   const latestDevotional = devotionals?.content?.[0];
+  // No church devotional yet? Fall back to the shared daily verse, which rotates
+  // by day-of-year (same source as the Daily Word page) so Home shows a fresh
+  // verse every day instead of the same static one forever.
+  const daily = getDailyVerse();
   const verse = latestDevotional
     ? { verse: latestDevotional.content, reference: latestDevotional.title }
-    : DAILY_VERSE;
+    : { verse: daily.text, reference: daily.reference };
+
+  // Is the church broadcasting right now? Shares its cache key with the Live
+  // screen (both plain useQuery), so opening one warms the other.
+  const { data: liveStream, refetch: refetchLive } =
+    useQuery({
+      queryKey: ['live-streams', 'current'],
+      queryFn: liveStreamsApi.getCurrent,
+      refetchInterval: 120_000,
+    });
 
   // Member's own pledges — totalElements only, size 1 keeps it cheap
   const { data: myPledges, refetch: refetchPledges } =
@@ -131,6 +140,7 @@ export default function HomeScreen() {
         refetchDevotionals(),
         refetchAttendance(),
         refetchPledges(),
+        refetchLive(),
       ]);
     } finally {
       setIsRefreshing(false);
@@ -155,6 +165,12 @@ export default function HomeScreen() {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        // Don't rubber-band into an empty veil below the content ("nothing
+        // beneath"): when the content fits the screen the page stays put
+        // (feels static), and it never over-scrolls past the last card.
+        // Pull-to-refresh still works via the RefreshControl.
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={Colors.gold} />
         }
@@ -171,6 +187,27 @@ export default function HomeScreen() {
         >
           <View style={{ paddingTop: insets.top + 16 }} />
         </WorshipHero>
+
+        {/* Live now — top of the page when the church is broadcasting, because
+            it is the most time-critical thing on the screen. Hidden otherwise. */}
+        {liveStream ? (
+          <ScrollReveal delay={0}>
+            <TouchableOpacity
+              onPress={() => { haptics.medium(); router.push('/live' as any); }}
+              style={styles.liveCard}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={`Live now: ${liveStream.title}. Tap to watch.`}
+            >
+              <View style={styles.liveDot} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.liveLabel}>LIVE NOW</Text>
+                <Text style={styles.liveTitle} numberOfLines={1}>{liveStream.title}</Text>
+              </View>
+              <Text style={styles.liveWatch}>Watch ›</Text>
+            </TouchableOpacity>
+          </ScrollReveal>
+        ) : null}
 
         {/* Daily verse — FIRST, straight under the hero */}
         <ScrollReveal delay={0}>
@@ -190,6 +227,24 @@ export default function HomeScreen() {
           </View>
         </ScrollReveal>
 
+        {/* For You — a personal hub (Daily Word, Journey, Payments, Ask Klink…) */}
+        <ScrollReveal delay={40}>
+          <TouchableOpacity
+            onPress={() => { haptics.medium(); router.push('/for-you' as any); }}
+            style={styles.forYouCard}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Open your personal For You hub"
+          >
+            <Text style={styles.forYouIcon}>✨</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.forYouTitle}>For You</Text>
+              <Text style={styles.forYouDesc}>Daily Word, your journey, payments & more</Text>
+            </View>
+            <Text style={styles.forYouChevron}>›</Text>
+          </TouchableOpacity>
+        </ScrollReveal>
+
         {/* Quick access — big photo tiles, 2 per row (church-hub structure) */}
         <ScrollReveal delay={0}>
           <QuickActions />
@@ -205,92 +260,67 @@ export default function HomeScreen() {
           </View>
         </ScrollReveal>
 
-        {/* Active projects */}
-        <View style={styles.section}>
-          <SectionHeader label="Active Projects" onSeeAll={() => router.push('/projects')} />
-          {loadingProjects ? (
-            <SermonCardSkeleton />
-          ) : (projects?.content?.length ?? 0) > 0 ? (
-            projects?.content?.slice(0, 2).map((p: Project, i: number) => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                index={i}
-                onPress={() => router.push(`/projects/${p.id}`)}
-              />
-            ))
-          ) : (
-            <EmptyState
-              icon="🏗"
-              title="No active projects"
-              subtitle="Fundraising and construction projects will appear here"
-              actionLabel={canManageContent ? 'Create project' : undefined}
-              onAction={canManageContent ? () => router.push('/projects') : undefined}
-            />
-          )}
-        </View>
-
-        {/* Announcements */}
-        <View style={styles.section}>
-          <SectionHeader label="Announcements" onSeeAll={() => router.push('/announcements')} />
-          {loadingAnn
-            ? Array.from({ length: 3 }, (_, i) => <AnnouncementSkeleton key={i} />)
-            : (announcements?.content?.length ?? 0) > 0
-            ? announcements?.content?.map((a: Announcement, i: number) => (
-                <AnnouncementCard key={a.id} announcement={a} index={i} />
+        {/* Active projects — hidden entirely when empty so the page doesn't
+            scroll into stacked "nothing here yet" states (Home = act, not a
+            list; every feature is still reachable from the grid / Church tab). */}
+        {(loadingProjects || (projects?.content?.length ?? 0) > 0) && (
+          <View style={styles.section}>
+            <SectionHeader label="Active Projects" onSeeAll={() => router.push('/projects')} />
+            {loadingProjects ? (
+              <SermonCardSkeleton />
+            ) : (
+              projects?.content?.slice(0, 2).map((p: Project, i: number) => (
+                <ProjectCard
+                  key={p.id}
+                  project={p}
+                  index={i}
+                  onPress={() => router.push(`/projects/${p.id}`)}
+                />
               ))
-            : (
-              <EmptyState
-                icon="📢"
-                title="No announcements yet"
-                subtitle="Church announcements will appear here"
-                actionLabel={canManageContent ? 'Post announcement' : undefined}
-                onAction={canManageContent ? () => router.push('/announcements/new') : undefined}
-              />
             )}
-        </View>
+          </View>
+        )}
 
-        {/* Upcoming events */}
-        <View style={styles.section}>
-          <SectionHeader label="Upcoming Events" onSeeAll={() => router.push('/events')} />
-          {loadingEvents
-            ? Array.from({ length: 2 }, (_, i) => <AnnouncementSkeleton key={i} />)
-            : (events?.content?.length ?? 0) > 0
-            ? events?.content?.slice(0, 3).map((e: ChurchEvent, i: number) => (
-                <EventCard key={e.id} event={e} index={i} />
-              ))
-            : (
-              <EmptyState
-                icon="📅"
-                title="No upcoming events"
-                subtitle="Upcoming church events and services will appear here"
-                actionLabel={canManageContent ? 'Add event' : undefined}
-                onAction={canManageContent ? () => router.push('/events') : undefined}
-              />
-            )}
-        </View>
+        {/* Announcements — hidden when empty (see Active Projects note). */}
+        {(loadingAnn || (announcements?.content?.length ?? 0) > 0) && (
+          <View style={styles.section}>
+            <SectionHeader label="Announcements" onSeeAll={() => router.push('/announcements')} />
+            {loadingAnn
+              ? Array.from({ length: 3 }, (_, i) => <AnnouncementSkeleton key={i} />)
+              : announcements?.content?.map((a: Announcement, i: number) => (
+                  <AnnouncementCard key={a.id} announcement={a} index={i} />
+                ))}
+          </View>
+        )}
 
-        {/* Recent sermons — bottom padding clears the floating tab dock EXACTLY
-            (dock ≈ 64px + the safe-area inset), so the scroll ends right at the
-            content instead of into empty space below it. */}
-        <View style={[styles.section, { paddingBottom: insets.bottom + 64 }]}>
-          <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/sermons')} />
-          {loadingSermons
-            ? Array.from({ length: 2 }, (_, i) => <SermonCardSkeleton key={i} />)
-            : (sermons?.content?.length ?? 0) > 0
-            ? sermons?.content?.slice(0, 3).map((s: Sermon, i: number) => (
-                <SermonCard key={s.id} sermon={s} index={i} onPress={() => router.push(`/sermons/${s.id}`)} />
-              ))
-            : (
-              <EmptyState
-                icon="🎙"
-                title="No sermons recorded"
-                subtitle="Sermons and messages from your pastor will appear here"
-                actionLabel={canManageContent ? 'Add sermon' : undefined}
-                onAction={canManageContent ? () => router.push('/sermons') : undefined}
-              />
-            )}
-        </View>
+        {/* Upcoming events — hidden when empty (see Active Projects note). */}
+        {(loadingEvents || (events?.content?.length ?? 0) > 0) && (
+          <View style={styles.section}>
+            <SectionHeader label="Upcoming Events" onSeeAll={() => router.push('/events')} />
+            {loadingEvents
+              ? Array.from({ length: 2 }, (_, i) => <AnnouncementSkeleton key={i} />)
+              : events?.content?.slice(0, 3).map((e: ChurchEvent, i: number) => (
+                  <EventCard key={e.id} event={e} index={i} />
+                ))}
+          </View>
+        )}
+
+        {/* Recent sermons — hidden when empty (see Active Projects note). */}
+        {(loadingSermons || (sermons?.content?.length ?? 0) > 0) && (
+          <View style={styles.section}>
+            <SectionHeader label="Recent Sermons" onSeeAll={() => router.push('/sermons')} />
+            {loadingSermons
+              ? Array.from({ length: 2 }, (_, i) => <SermonCardSkeleton key={i} />)
+              : sermons?.content?.slice(0, 3).map((s: Sermon, i: number) => (
+                  <SermonCard key={s.id} sermon={s} index={i} onPress={() => router.push(`/sermons/${s.id}`)} />
+                ))}
+          </View>
+        )}
+
+        {/* Constant, minimal bottom clearance for the floating tab dock — so the
+            page ends just past the content (not in a void) however many preview
+            sections are visible. */}
+        <View style={{ height: insets.bottom + 72 }} />
       </Animated.ScrollView>
     </View>
   );
@@ -543,6 +573,44 @@ const styles = StyleSheet.create({
     letterSpacing: LetterSpacing.wide,
   },
   section: { paddingTop: Spacing.lg, gap: 0 },
+  liveCard: {
+    marginHorizontal: Spacing.pagePadding,
+    marginTop: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: 'rgba(220,38,38,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(220,38,38,0.45)',
+    borderTopColor: 'rgba(255,255,255,0.28)',
+  },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
+  liveLabel: {
+    color: '#FCA5A5', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.6,
+  },
+  liveTitle: { color: Colors.white, fontSize: FontSize.body, fontWeight: FontWeight.bold, marginTop: 1 },
+  liveWatch: { color: Colors.gold, fontSize: FontSize.small, fontWeight: FontWeight.bold },
+  forYouCard: {
+    marginHorizontal: Spacing.pagePadding,
+    marginTop: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: 'rgba(244,164,41,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,164,41,0.32)',
+    borderTopColor: 'rgba(255,255,255,0.28)',
+  },
+  forYouIcon: { fontSize: 24 },
+  forYouTitle: { color: Colors.white, fontSize: FontSize.body, fontWeight: FontWeight.bold },
+  forYouDesc: { color: 'rgba(255,255,255,0.7)', fontSize: FontSize.caption, marginTop: 1 },
+  forYouChevron: { color: Colors.gold, fontSize: 26, fontWeight: FontWeight.bold },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

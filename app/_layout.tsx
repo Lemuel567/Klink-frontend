@@ -231,6 +231,10 @@ export default function RootLayout() {
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="profile/edit" options={{ presentation: 'modal', headerShown: false }} />
+              <Stack.Screen name="profile/journey" />
+              <Stack.Screen name="for-you/index" />
+              <Stack.Screen name="bible/index" />
+              <Stack.Screen name="live/index" />
               <Stack.Screen name="church/settings" options={{ presentation: 'modal', headerShown: false }} />
               <Stack.Screen name="members/[id]" options={{ presentation: 'modal' }} />
               <Stack.Screen name="giving/new" options={{ presentation: 'modal' }} />

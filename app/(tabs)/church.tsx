@@ -30,6 +30,7 @@ const GROUPS: { label: string; features: Feature[] }[] = [
   {
     label: 'Worship',
     features: [
+      { title: 'Live', desc: 'Watch the service', route: '/live', photo: WorshipImages.pianoWorship2 },
       { title: 'Sermons', desc: 'Messages & audio', route: '/sermons', photo: WorshipImages.worshipLeader1 },
       { title: 'Devotional', desc: "Today's word", route: '/devotional', photo: WorshipImages.worshipSolo1 },
       { title: 'Prayer Wall', desc: 'Pray together', route: '/prayer', photo: WorshipImages.prayer2 },

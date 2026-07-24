@@ -11,13 +11,13 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image as ExpoImage } from 'expo-image';
 import { router } from 'expo-router';
 import { LightBeam } from '../../src/components/animations/LightBeam';
 import { FloatingElement } from '../../src/components/animations/FloatingElement';
 import { CrossWithRays } from '../../src/components/worship';
-import { WatermarkBackground } from '../../src/components/common/WatermarkBackground';
 import { TypewriterText } from '../../src/components/animations/TypewriterText';
-import { ScreenPhotos } from '../../src/utils/worshipImages';
+import { WorshipImages } from '../../src/utils/worshipImages';
 import { Colors, Gradients } from '../../src/theme/colors';
 import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography';
 import { Duration, EasingPresets, SpringConfig } from '../../src/theme/animations';
@@ -117,11 +117,21 @@ export default function SplashScreen() {
   }));
 
   return (
-    <WatermarkBackground
-      imageSource={ScreenPhotos.splash}
-      overlayOpacity={0.5}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      {/* Fixed loading background — the worship piano photo (user-chosen). The
+          centered logo/glow/cross sits over the middle, so the stock watermark
+          is covered. contentFit="cover" fills any phone; scrim keeps text clear. */}
+      <ExpoImage
+        source={WorshipImages.pianoWorship1}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+      />
+      <LinearGradient
+        colors={['rgba(10,5,32,0.42)', 'rgba(10,5,32,0.58)', 'rgba(10,5,32,0.82)'] as const}
+        style={StyleSheet.absoluteFill}
+      />
+
       {/* Purple aurora layer over the worship photo */}
       <View style={[StyleSheet.absoluteFill, styles.aurora]} />
 
@@ -174,7 +184,7 @@ export default function SplashScreen() {
           />
         </Animated.View>
       </View>
-    </WatermarkBackground>
+    </View>
   );
 }
 

@@ -45,6 +45,13 @@ export const WorshipImages = {
   // User-supplied 2026-07-23 (np.avif from Desktop) — AVIF decodes natively
   // via expo-image; Metro SDK 54 bundles .avif assets.
   worshipNp1: require('../../assets/images/church/np.avif') as ImageSourcePropType,
+
+  // User-supplied 2026-07-23 ("ner" folder). NOTE: these are iStock preview
+  // comps with a faint watermark (the dark app veil dims it) — the user chose
+  // to use them; swap in licensed/clean files under the same names to remove it.
+  pianoWorship1: require('../../assets/images/church/piano-worship-1.jpg') as ImageSourcePropType, // hands on piano, warm + blue light
+  pianoWorship2: require('../../assets/images/church/piano-worship-2.jpg') as ImageSourcePropType, // hands gliding over piano keys, warm
+  interiorWarm1: require('../../assets/images/church/interior-warm-1.jpg') as ImageSourcePropType, // soft-focus warm interior, bokeh lights
 };
 
 /**
@@ -64,6 +71,9 @@ export const WorshipPhotoArray: ImageSourcePropType[] = [
   WorshipImages.worshipHands4,
   WorshipImages.praiseNature1,
   WorshipImages.worshipNp1,
+  WorshipImages.pianoWorship1,
+  WorshipImages.pianoWorship2,
+  WorshipImages.interiorWarm1,
 ];
 
 /** Alternate photos by index — adjacent items never repeat. */

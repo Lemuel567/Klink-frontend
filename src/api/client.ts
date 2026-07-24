@@ -1,6 +1,6 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { ACCESS_TOKEN_TTL_MS, API_BASE_URL, SECURE_KEYS, TIMEOUT_MS } from '../utils/constants';
+import { ACCESS_TOKEN_TTL_MS, API_BASE_URL, AUTH_TIMEOUT_MS, SECURE_KEYS, TIMEOUT_MS } from '../utils/constants';
 
 // Lazy import to avoid circular dependency at module init time
 let _setOffline: ((v: boolean) => void) | null = null;
@@ -55,29 +55,6 @@ function friendlyNetworkMessage(error: AxiosError): string {
   if (status === 429) return 'Too many attempts. Please wait a moment and try again.';
   if (status >= 500) return 'Server error. Please try again in a moment.';
   return 'An unexpected error occurred. Please try again.';
-}
-
-// Retry logic: only on network-level errors and 5xx, not on 4xx
-async function withRetry(
-  fn: () => Promise<any>,
-  maxRetries = 2,
-  delayMs = 1000,
-): Promise<any> {
-  let lastError: any;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err: any) {
-      lastError = err;
-      const shouldRetry =
-        attempt < maxRetries &&
-        (!err.response || err.response.status >= 500) &&
-        err.code !== 'ECONNABORTED';
-      if (!shouldRetry) break;
-      await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
-    }
-  }
-  throw lastError;
 }
 
 export const apiClient: AxiosInstance = axios.create({
@@ -162,7 +139,14 @@ apiClient.interceptors.response.use(
         const refreshToken = await SecureStore.getItemAsync(SECURE_KEYS.refreshToken).catch(() => null);
         if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+        // Bounded timeout: the bare `axios` (not apiClient) has no default
+        // timeout, so a half-open/hung tunnel would leave `isRefreshing` true
+        // forever and strand every queued 401 as a never-resolving subscriber.
+        const { data } = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          { timeout: AUTH_TIMEOUT_MS },
+        );
         const newAccessToken: string = data.token;
         const newRefreshToken: string = data.refreshToken;
 

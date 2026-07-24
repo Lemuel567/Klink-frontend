@@ -17,6 +17,8 @@ import { FontSize, FontWeight, LetterSpacing } from '../../src/theme/typography'
 import { BorderRadius, Spacing } from '../../src/theme/spacing';
 import { useTheme } from '../../src/hooks/useTheme';
 import { formatDate } from '../../src/utils/formatters';
+import { TranslatePanel } from '../../src/components/common/TranslatePanel';
+import { DiscussionGuidePanel } from '../../src/components/common/DiscussionGuidePanel';
 
 export default function SermonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -191,6 +193,21 @@ export default function SermonDetailScreen() {
             </ScrollReveal>
           )}
 
+          {/* AI study tools — translate into a local language + a small-group guide */}
+          {sermon?.notes && (
+            <ScrollReveal delay={140}>
+              <View style={styles.aiTools}>
+                <TranslatePanel text={sermon.notes} contentLabel="this sermon" />
+                <DiscussionGuidePanel
+                  title={sermon.title}
+                  scripture={sermon.scripture}
+                  memoryVerse={sermon.memoryVerse}
+                  notes={sermon.notes}
+                />
+              </View>
+            </ScrollReveal>
+          )}
+
           {sermon?.audioUrl && (
             <ScrollReveal delay={200}>
               {/* Audio player */}
@@ -291,6 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   notes: { fontSize: FontSize.body, lineHeight: FontSize.body * 1.75 },
+  aiTools: { gap: Spacing.md, marginTop: Spacing.md },
   playerCard: {
     gap: Spacing.sm,
   },

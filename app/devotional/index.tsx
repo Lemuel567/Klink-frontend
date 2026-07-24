@@ -37,6 +37,7 @@ import { formatRelativeTime } from '../../src/utils/formatters';
 import { StaggerDelay } from '../../src/theme/animations';
 import { PAGE_SIZE } from '../../src/utils/constants';
 import { AIPolish } from '../../src/components/common/AIPolish';
+import { TranslatePanel } from '../../src/components/common/TranslatePanel';
 
 const CAN_POST = ['PASTOR', 'ELDER', 'MANAGER'];
 
@@ -136,6 +137,9 @@ export default function DevotionalScreen() {
                       <View style={[StyleSheet.absoluteFill, styles.featuredGlass]} />
                       <Text style={styles.featuredTitle}>{featured.title}</Text>
                       <Text style={styles.featuredContent}>{featured.content}</Text>
+                      <View style={{ marginTop: Spacing.sm }}>
+                        <TranslatePanel text={featured.content} contentLabel="this devotional" />
+                      </View>
                       <View style={styles.featuredFooter}>
                         <Text style={styles.featuredDate}>{featured.devotionalDate}</Text>
                         <TouchableOpacity

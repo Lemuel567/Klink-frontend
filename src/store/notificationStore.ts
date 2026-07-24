@@ -36,17 +36,20 @@ export const useNotificationStore = create<NotificationStore>()(
           timestamp: Date.now(),
           read: false,
         };
-        set((state) => ({
-          notifications: [notification, ...state.notifications].slice(0, 50),
-          unreadCount: state.unreadCount + 1,
-        }));
+        set((state) => {
+          const notifications = [notification, ...state.notifications].slice(0, 50);
+          // Always DERIVE the count from the (capped) list — never increment a
+          // separate counter, which drifts when an unread item is sliced off the
+          // 50-item tail (overcount) or markRead runs twice (undercount).
+          return { notifications, unreadCount: notifications.filter((x) => !x.read).length };
+        });
       },
 
       markRead: (id) =>
-        set((state) => ({
-          notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
-          unreadCount: Math.max(0, state.unreadCount - 1),
-        })),
+        set((state) => {
+          const notifications = state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+          return { notifications, unreadCount: notifications.filter((x) => !x.read).length };
+        }),
 
       markAllRead: () =>
         set((state) => ({
@@ -64,8 +67,12 @@ export const useNotificationStore = create<NotificationStore>()(
       // fcmToken is re-registered on login; no need to persist it here
       partialize: (state) => ({
         notifications: state.notifications,
-        unreadCount: state.unreadCount,
       }),
+      // Re-derive the unread badge from the stored list on launch, so any
+      // count persisted by an older (drift-prone) build self-corrects.
+      onRehydrateStorage: () => (state) => {
+        if (state) state.unreadCount = state.notifications.filter((n) => !n.read).length;
+      },
     },
   ),
 );

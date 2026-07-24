@@ -275,9 +275,13 @@ export default function PrayerRequestsScreen() {
                   {(isLeader || viewing.memberId === user?.id) && (
                     <TouchableOpacity
                       onPress={() => {
+                        haptics.warning();
                         const p = viewing;
                         setViewing(null);
-                        handleDelete(p);
+                        // Defer the confirm Alert until the sheet has finished
+                        // dismissing — firing Alert.alert mid-dismiss silently
+                        // swallows it on iOS, so the delete "did nothing".
+                        setTimeout(() => handleDelete(p), 320);
                       }}
                       style={[styles.sheetActionBtn, { borderColor: 'rgba(220,38,38,0.6)' }]}
                       accessibilityRole="button"

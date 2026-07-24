@@ -145,7 +145,9 @@ export default function MemberDetailScreen() {
 
         <KlinkAvatar name={member.fullName} photoUrl={member.photoUrl} size={88} />
         <Text style={styles.name}>{member.fullName}</Text>
-        <RoleBadge role={member.role} />
+        {/* Directory-view records (a member viewing another member) have a NULL
+            role — guard so we don't paint an empty grey badge, matching MemberCard. */}
+        {member.role && <RoleBadge role={member.role} />}
         {member.status === 'DEACTIVATED' && (
           <View style={styles.deactivatedBadge}>
             <Text style={styles.deactivatedText}>Account deactivated</Text>
