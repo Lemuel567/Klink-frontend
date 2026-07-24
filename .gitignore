@@ -1,3 +1,4 @@
+# Last updated: 17 June 2026
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
@@ -35,6 +36,83 @@ npm-debug.*
 npm-debug.log*
 yarn-debug.*
 yarn-debug.log*
+yarn-error.*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Coverage
+coverage
+*.lcov
+lib-cov
+.nyc_output
+
+# Build output
+build/
+build/Release
+.next
+out
+.nuxt
+.output
+.svelte-kit/
+**/.vitepress/dist
+**/.vitepress/cache
+.docusaurus
+.vuepress/dist
+.temp
+
+# Cache directories
+.cache
+.parcel-cache
+.npm
+.eslintcache
+.stylelintcache
+.grunt
+.fusebox/
+
+# Environment files — NEVER commit
+.env
+.env.*
+!.env.example
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# Misc
+.lock-wscroll
+.node_repl_history
+*.tgz
+.yarn-integrity
+.serverless/
+.dynamodb/
+.firebase/
+.tern-port
+.vscode-test
+.pnpm-store
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+.vite/
+
+# IDE + local tunnel logs
+.idea/
+.tunnel-logs/yarn-debug.log*
 yarn-error.*
 yarn-error.log*
 lerna-debug.log*
