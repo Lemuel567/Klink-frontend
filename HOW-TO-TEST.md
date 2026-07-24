@@ -4,24 +4,25 @@ This is a **mobile-only** app (iOS/Android). There is no web target — do not
 run `--web` or add react-native-web. The complete, current runbook is in
 **HOW-TO-TEST-IPHONE.md**; this file is the quick version.
 
-Project paths (repos moved off the Desktop 2026-07-16):
+Project paths (repos moved off the Desktop 2026-06-15):
 - Frontend: `C:\Users\lemue\IdeaProjects\klinkApp\Klink-frontend`
 - Backend:  `C:\Users\lemue\IdeaProjects\klinkApp\Klink-backend`
 
 ---
 
 ## Start the backend
-```
+```powershell
 cd C:\Users\lemue\IdeaProjects\klinkApp\Klink-backend
 .\mvnw.cmd spring-boot:run
 ```
-Wait for "Started Demo5Application" (~90 s). Check `GET http://localhost:8080/api/v1/health` → `{status:UP}`.
+Wait for the "Started Demo5Application" log line (~90 s). Then check that
+`GET http://localhost:8080/api/v1/health` returns `{status:UP}`.
 
 ---
 
-## Method 1 — Laptop Windows Mobile Hotspot (LAN, FAST) ✅ preferred
-Campus Wi-Fi isolates devices, so plain "same Wi-Fi" LAN does not work — the
-phone joins a network the laptop broadcasts instead.
+## Method 1 — Laptop Windows Mobile Hotspot (LAN, fast) ✅ preferred
+Campus Wi-Fi isolates devices from each other, so plain "same Wi-Fi" LAN
+doesn't work. The phone instead joins a network the laptop broadcasts.
 
 1. `ENV = 'wifi'` in `src/utils/constants.ts` (`LAPTOP_WIFI_IP = '192.168.137.1'`).
 2. Turn on Windows Mobile Hotspot; join it from the iPhone.
@@ -31,7 +32,8 @@ phone joins a network the laptop broadcasts instead.
 5. iPhone → Expo Go → "Enter URL manually" → `exp://192.168.137.1:8081`.
 
 ## Method 2 — Cloudflare tunnel (any network, slower first load)
-On this network ngrok and localtunnel are blocked; use Cloudflare quick tunnels.
+ngrok and localtunnel are blocked on this network, so use Cloudflare quick
+tunnels instead.
 1. `ENV = 'tunnel'` in `constants.ts`.
 2. `npm run tunnel:backend` → paste the `trycloudflare` URL into `TUNNEL_API_URL` (keep `/api/v1`).
 3. `npm run tunnel:metro` → note that URL.
